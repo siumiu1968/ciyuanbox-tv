@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <dimen name="poster_width">140dp</dimen>
+    <dimen name="poster_height">190dp</dimen>
+    <dimen name="history_poster_width">170dp</dimen>
+    <dimen name="history_poster_height">230dp</dimen>
+    <dimen name="lb_browse_padding_start">56dp</dimen>
+    <dimen name="lb_browse_padding_end">56dp</dimen>
+    <dimen name="screen_v_padding">10dp</dimen>
+    <dimen name="screen_h_padding">10dp</dimen>
+    <dimen name="home_icon_gap">10dp</dimen>
+    <dimen name="lb_playback_controls_margin_bottom">20dp</dimen>
+    <dimen name="lb_playback_controls_padding_bottom">28dp</dimen>
+    <dimen name="lb_playback_transport_control_info_margin_bottom">12dp</dimen>
+    <dimen name="lb_playback_transport_controlbar_margin_start">0dp</dimen>
+    <dimen name="lb_playback_transport_control_row_padding_bottom">26dp</dimen>
+    <dimen name="lb_playback_transport_image_height">104dp</dimen>
+    <dimen name="lb_playback_transport_image_margin_end">20dp</dimen>
+    <dimen name="lb_playback_transport_thumbs_bottom_margin">14dp</dimen>
+    <dimen name="lb_playback_transport_time_margin">12dp</dimen>
+    <dimen name="lb_playback_transport_time_margin_top">4dp</dimen>
+</resources>
