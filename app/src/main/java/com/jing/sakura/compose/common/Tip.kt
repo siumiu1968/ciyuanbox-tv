@@ -13,16 +13,21 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -38,50 +43,52 @@ import com.jing.sakura.R
 
 
 @Composable
-fun Loading(text: String = "Loading"): Unit {
+fun Loading(text: String = "載入中"): Unit {
+    val transition = rememberInfiniteTransition(label = "brandLoading")
+    val pulse = transition.animateFloat(
+        initialValue = 0.96f,
+        targetValue = 1.02f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 900),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "brandPulse"
+    )
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(
-                Brush.linearGradient(
-                    listOf(
-                        Color(0xFF08111E),
-                        Color(0xFF132847),
-                        Color(0xFF411A4C),
-                        Color(0xFF080B12)
-                    )
-                )
-            )
+            .background(AulamaTvColors.Background)
     ) {
         Column(
-            modifier = Modifier
-                .align(Alignment.Center)
-                .background(Color.White.copy(alpha = 0.07f), RoundedCornerShape(28.dp))
-                .padding(horizontal = 32.dp, vertical = 28.dp),
+            modifier = Modifier.align(Alignment.Center),
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Image(
-                painter = painterResource(id = R.drawable.app_icon_your_company),
+                painter = painterResource(id = R.drawable.aulama_anime_icon),
                 contentDescription = null,
-                modifier = Modifier.size(182.dp)
+                modifier = Modifier
+                    .size(116.dp)
+                    .scale(pulse.value)
             )
-            Spacer(modifier = Modifier.height(14.dp))
-            Text(
-                text = stringResource(R.string.app_name),
-                style = MaterialTheme.typography.headlineSmall,
-                color = Color.White
+            Spacer(modifier = Modifier.height(12.dp))
+            Image(
+                painter = painterResource(id = R.drawable.aulama_anime_wordmark),
+                contentDescription = stringResource(R.string.app_name),
+                modifier = Modifier
+                    .size(width = 210.dp, height = 86.dp)
+                    .alpha(0.96f)
             )
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = "追新番、補劇場、一路看到最後一集",
-                style = MaterialTheme.typography.bodyMedium,
-                color = Color(0xFFDDE7FF)
-            )
-            Spacer(modifier = Modifier.height(18.dp))
-            CircularProgressIndicator()
             Spacer(modifier = Modifier.height(10.dp))
-            Text(text = text, color = Color.White)
+            CircularProgressIndicator(
+                modifier = Modifier.size(28.dp),
+                color = AulamaTvColors.Cyan,
+                strokeWidth = 3.dp
+            )
+            if (text.isNotBlank()) {
+                Spacer(modifier = Modifier.height(10.dp))
+                Text(text = text, color = AulamaTvColors.TextSecondary)
+            }
         }
     }
 }
@@ -106,11 +113,11 @@ fun ErrorTip(message: String, retry: () -> Unit = { }) {
             border = ButtonDefaults.border(
                 focusedBorder = Border(
                     BorderStroke(2.dp, MaterialTheme.colorScheme.border),
-                    shape = MaterialTheme.shapes.extraLarge
+                    shape = AulamaCardShape
                 )
             ),
-            shape = ButtonDefaults.shape(shape = MaterialTheme.shapes.extraLarge),
-            scale = ButtonScale.None,
+            shape = ButtonDefaults.shape(shape = AulamaCardShape),
+            scale = ButtonDefaults.scale(focusedScale = AulamaFocusScale),
             colors = ButtonDefaults.colors(
                 containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.8f),
                 contentColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),

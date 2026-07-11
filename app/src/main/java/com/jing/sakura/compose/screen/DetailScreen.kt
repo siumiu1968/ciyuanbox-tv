@@ -5,6 +5,7 @@ package com.jing.sakura.compose.screen
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.border
@@ -54,6 +55,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.dimensionResource
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -82,12 +84,17 @@ import com.jing.sakura.R
 import com.jing.sakura.compose.common.ErrorTip
 import com.jing.sakura.compose.common.FocusGroup
 import com.jing.sakura.compose.common.Loading
+import com.jing.sakura.compose.common.AulamaCardShape
+import com.jing.sakura.compose.common.AulamaFocusScale
+import com.jing.sakura.compose.common.AulamaSectionHeader
+import com.jing.sakura.compose.common.AulamaTvColors
 import com.jing.sakura.compose.common.rememberDpadRepeatGate
 import com.jing.sakura.compose.common.rememberPosterImageRequest
 import com.jing.sakura.compose.common.UpAndDownFocusProperties
 import com.jing.sakura.compose.common.Value
 import com.jing.sakura.compose.common.VideoCard
 import com.jing.sakura.compose.common.applyUpAndDown
+import com.jing.sakura.compose.common.toDisplayLineName
 import com.jing.sakura.data.AnimeData
 import com.jing.sakura.data.AnimeDetailPageData
 import com.jing.sakura.data.AnimePlayList
@@ -272,22 +279,15 @@ fun DetailScreen(viewModel: DetailPageViewModel) {
                             horizontalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
                             Text(
-                                text = playlist.name,
+                                text = playlist.name.toDisplayLineName(),
                                 style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
                                 color = Color(0xFFF4F6FF)
                             )
-                            Box(
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(999.dp))
-                                    .background(Color.White.copy(alpha = 0.08f))
-                                    .padding(horizontal = 10.dp, vertical = 5.dp)
-                            ) {
-                                Text(
-                                    text = "${playlist.episodeList.size} 集",
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = Color(0xFFD1D8F4)
-                                )
-                            }
+                            Text(
+                                text = "${playlist.episodeList.size} 集",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = AulamaTvColors.TextSecondary
+                            )
                             if (playlistIndex == 0) {
                                 Surface(
                                     onClick = {
@@ -391,29 +391,12 @@ fun RelativeVideoRow(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 18.dp)
-                .clip(RoundedCornerShape(26.dp))
-                .background(
-                    Brush.linearGradient(
-                        listOf(
-                            Color(0xCC12253D),
-                            Color(0xCC214C70),
-                            Color(0xCC7A385C)
-                        )
-                    )
-                )
-                .border(
-                    width = 1.dp,
-                    color = Color.White.copy(alpha = 0.08f),
-                    shape = RoundedCornerShape(26.dp)
-                )
-                .padding(vertical = 18.dp)
+                .padding(vertical = 10.dp)
         ) {
-            Text(
-                text = stringResource(id = R.string.related_videos),
-                style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
-                color = Color(0xFFF4F6FF),
-                modifier = Modifier.padding(horizontal = 18.dp)
+            AulamaSectionHeader(
+                title = stringResource(id = R.string.related_videos),
+                count = videos.size,
+                accent = AulamaTvColors.Pink
             )
             Spacer(modifier = Modifier.height(12.dp))
             TvLazyRow(
@@ -464,23 +447,7 @@ fun PlayListRow(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 18.dp)
-            .clip(RoundedCornerShape(26.dp))
-            .background(
-                Brush.linearGradient(
-                    listOf(
-                        Color(0xCC15243B),
-                        Color(0xCC5E3970),
-                        Color(0xCC19526B)
-                    )
-                )
-            )
-            .border(
-                width = 1.dp,
-                color = Color.White.copy(alpha = 0.08f),
-                shape = RoundedCornerShape(26.dp)
-            )
-            .padding(horizontal = 18.dp, vertical = 16.dp)
+            .padding(horizontal = 18.dp, vertical = 10.dp)
     ) {
         title()
         Spacer(modifier = Modifier.height(12.dp))
@@ -546,29 +513,19 @@ fun VideoInfoRow(
         mutableStateOf(false)
     }
     val infoRows = remember(videoDetail.infoList) {
-        videoDetail.infoList.chunked(2)
+        videoDetail.infoList
+            .map(String::trim)
+            .filter { info ->
+                info.isNotBlank() && !info.matches(Regex(".*[：:]\\s*$"))
+            }
+            .chunked(2)
     }
 
     FocusGroup(modifier) {
         Row(
             Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 18.dp)
-                .clip(RoundedCornerShape(30.dp))
-                .background(
-                    Brush.linearGradient(
-                        listOf(
-                            Color(0xD012223A),
-                            Color(0xD0354E74),
-                            Color(0xD0663056)
-                        )
-                    )
-                )
-                .border(
-                    width = 1.dp,
-                    color = Color.White.copy(alpha = 0.09f),
-                    shape = RoundedCornerShape(30.dp)
-                )
+                .background(AulamaTvColors.Surface)
                 .padding(20.dp)
                 .heightIn(min = dimensionResource(id = R.dimen.poster_height) * 1.3f + 16.dp)
         ) {
@@ -589,13 +546,15 @@ fun VideoInfoRow(
                     )
                 },
                 title = {},
-                scale = CardDefaults.scale(focusedScale = 1.03f),
+                scale = CardDefaults.scale(focusedScale = AulamaFocusScale),
+                shape = CardDefaults.shape(shape = AulamaCardShape),
                 modifier = Modifier
                     .initiallyFocused()
                     .size(
                         dimensionResource(id = R.dimen.poster_width) * 1.3f,
                         dimensionResource(id = R.dimen.poster_height) * 1.3f
                     )
+                    .border(1.dp, AulamaTvColors.Outline, AulamaCardShape)
                     .focusProperties { applyUpAndDown(upAndDownFocusProperties) }
             )
             Spacer(modifier = Modifier.width(15.dp))
@@ -604,22 +563,35 @@ fun VideoInfoRow(
                     .weight(1f),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                Text(
-                    text = videoDetail.animeName,
-                    style = MaterialTheme.typography.displaySmall.copy(fontWeight = FontWeight.Bold),
-                    maxLines = 3,
-                    color = Color(0xFFF7F8FF),
-                    modifier = Modifier.basicMarquee()
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.Top
+                ) {
+                    Text(
+                        text = videoDetail.animeName,
+                        style = MaterialTheme.typography.headlineLarge.copy(fontWeight = FontWeight.Bold),
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        color = AulamaTvColors.TextPrimary,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Image(
+                        painter = painterResource(R.drawable.aulama_anime_wordmark),
+                        contentDescription = stringResource(R.string.app_name),
+                        modifier = Modifier.size(width = 150.dp, height = 62.dp)
+                    )
+                }
                 if (playHistory != null) {
                     Box(
                         modifier = Modifier
-                            .clip(RoundedCornerShape(999.dp))
-                            .background(Color(0xFF7F5CFF).copy(alpha = 0.18f))
+                            .clip(AulamaCardShape)
+                            .background(AulamaTvColors.Cyan.copy(alpha = 0.14f))
                             .border(
                                 width = 1.dp,
-                                color = Color(0xFFB7A8FF).copy(alpha = 0.35f),
-                                shape = RoundedCornerShape(999.dp)
+                                color = AulamaTvColors.Cyan.copy(alpha = 0.4f),
+                                shape = AulamaCardShape
                             )
                             .padding(horizontal = 12.dp, vertical = 7.dp)
                     ) {
@@ -631,7 +603,7 @@ fun VideoInfoRow(
                                 (playHistory.videoDuration / 1000).secondsToMinuteAndSecondText()
                             ),
                             style = MaterialTheme.typography.bodyMedium,
-                            color = Color(0xFFE5EAFF)
+                            color = AulamaTvColors.TextPrimary
                         )
                     }
                 }
@@ -649,15 +621,16 @@ fun VideoInfoRow(
                                     Box(
                                         modifier = Modifier
                                             .weight(1f)
-                                            .clip(RoundedCornerShape(16.dp))
-                                            .background(Color.White.copy(alpha = 0.07f))
+                                            .clip(AulamaCardShape)
+                                            .background(AulamaTvColors.SurfaceRaised)
+                                            .border(1.dp, AulamaTvColors.Outline, AulamaCardShape)
                                             .padding(horizontal = 12.dp, vertical = 10.dp)
                                     ) {
                                         Text(
                                             text = info,
                                             maxLines = 3,
                                             overflow = TextOverflow.Ellipsis,
-                                            color = Color(0xFFD7DEF8)
+                                            color = AulamaTvColors.TextSecondary
                                         )
                                     }
                                 }
@@ -677,19 +650,24 @@ fun VideoInfoRow(
                                     }
                                     .restorableFocus(),
                                 onClick = { showDescDialog = true },
-                                scale = ClickableSurfaceScale.None,
+                                scale = ClickableSurfaceDefaults.scale(focusedScale = AulamaFocusScale),
                                 colors = ClickableSurfaceDefaults.colors(
-                                    containerColor = Color(0x55332366),
-                                    focusedContainerColor = MaterialTheme.colorScheme.surface
+                                    containerColor = AulamaTvColors.SurfaceRaised,
+                                    focusedContainerColor = Color(0xFF173A40)
                                 ),
                                 border = ClickableSurfaceDefaults.border(
+                                    border = Border(
+                                        BorderStroke(1.dp, AulamaTvColors.Outline),
+                                        shape = AulamaCardShape
+                                    ),
                                     focusedBorder = Border(
                                         BorderStroke(
                                             2.dp, MaterialTheme.colorScheme.border
-                                        )
+                                        ),
+                                        shape = AulamaCardShape
                                     )
                                 ),
-                                shape = ClickableSurfaceDefaults.shape(MaterialTheme.shapes.extraSmall)
+                                shape = ClickableSurfaceDefaults.shape(AulamaCardShape)
                             ) {
                                 Column(
                                     modifier = Modifier.padding(
@@ -699,7 +677,7 @@ fun VideoInfoRow(
                                     Text(
                                         text = stringResource(R.string.video_description),
                                         style = MaterialTheme.typography.labelLarge,
-                                        color = Color(0xFFD0D8F8)
+                                        color = AulamaTvColors.Cyan
                                     )
                                     Spacer(modifier = Modifier.height(4.dp))
                                     Text(
@@ -720,7 +698,7 @@ fun VideoInfoRow(
     }
 
     // 在Dialog中显示视频简介
-    AnimatedVisibility(visible = showDescDialog) {
+    if (showDescDialog) {
         val scrollState = rememberScrollState()
         val coroutineScope = rememberCoroutineScope()
         val longDescFocusRequester = remember {
@@ -730,6 +708,8 @@ fun VideoInfoRow(
             confirmButton = {},
             properties = DialogProperties(usePlatformDefaultWidth = false),
             modifier = Modifier.fillMaxWidth(0.6f),
+            shape = AulamaCardShape,
+            containerColor = AulamaTvColors.Surface,
             title = {
                 Text(
                     text = stringResource(R.string.video_description),
@@ -799,21 +779,21 @@ fun VideoEpisode(tagName: String, modifier: Modifier = Modifier, onClick: () -> 
                 if (focused) {
                     border(
                         2.dp,
-                        Color(0xFFAA9BFF),
-                        RoundedCornerShape(18.dp)
+                        AulamaTvColors.FocusBorder,
+                        AulamaCardShape
                     )
                 } else {
-                    this
+                    border(1.dp, AulamaTvColors.Outline, AulamaCardShape)
                 }
             },
         colors = ClickableSurfaceDefaults.colors(
-            containerColor = Color(0xAA191E37),
-            focusedContainerColor = Color(0xFF7758FF),
-            pressedContainerColor = Color(0xFF5F43E2)
+            containerColor = AulamaTvColors.SurfaceRaised,
+            focusedContainerColor = Color(0xFF1D555D),
+            pressedContainerColor = Color(0xFF174249)
         ),
-        shape = ClickableSurfaceDefaults.shape(shape = RoundedCornerShape(18.dp)),
+        shape = ClickableSurfaceDefaults.shape(shape = AulamaCardShape),
         border = ClickableSurfaceDefaults.border(),
-        scale = ClickableSurfaceDefaults.scale(focusedScale = 1.06f),
+        scale = ClickableSurfaceDefaults.scale(focusedScale = AulamaFocusScale),
         onClick = onClick
     ) {
         Text(

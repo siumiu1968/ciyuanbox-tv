@@ -31,7 +31,7 @@ class UpdateTimelineActivity : ComponentActivity() {
             SakuraTheme {
                 Box(
                     modifier = Modifier
-                        .background(MaterialTheme.colorScheme.surface)
+                        .background(MaterialTheme.colorScheme.background)
                         .padding(
                             dimensionResource(id = R.dimen.screen_h_padding),
                             dimensionResource(id = R.dimen.screen_v_padding)

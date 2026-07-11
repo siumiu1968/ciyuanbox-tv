@@ -7,7 +7,10 @@ import android.speech.SpeechRecognizer
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
 import androidx.compose.foundation.basicMarquee
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Arrangement.spacedBy
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -17,6 +20,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Search
@@ -68,6 +72,12 @@ import com.jing.sakura.R
 import com.jing.sakura.compose.common.ConfirmDeleteDialog
 import com.jing.sakura.compose.common.CustomTextField
 import com.jing.sakura.compose.common.FocusGroup
+import com.jing.sakura.compose.common.AulamaCardShape
+import com.jing.sakura.compose.common.AulamaFocusScale
+import com.jing.sakura.compose.common.AulamaIconButton
+import com.jing.sakura.compose.common.AulamaPageHeader
+import com.jing.sakura.compose.common.AulamaSectionHeader
+import com.jing.sakura.compose.common.AulamaTvColors
 import com.jing.sakura.compose.common.SpeechToTextParser
 import com.jing.sakura.compose.common.customClick
 import com.jing.sakura.compose.common.safelyRequestFocus
@@ -94,24 +104,33 @@ fun SearchScreen(viewModel: SearchViewModel) {
             }
         }
     }
-    Column(Modifier.fillMaxSize()) {
+    Column(
+        Modifier
+            .fillMaxSize()
+            .background(AulamaTvColors.Background)
+    ) {
+        AulamaPageHeader(title = stringResource(R.string.button_search))
         InputKeywordRow(onSearch)
 
         Row(
             Modifier
                 .fillMaxWidth()
                 .weight(1f)
+                .padding(horizontal = 18.dp, vertical = 10.dp)
         ) {
-            Column(
-                modifier = Modifier
-                    .padding(20.dp)
-                    .fillMaxHeight()
-                    .weight(1f),
-                verticalArrangement = spacedBy(10.dp)
-            ) {
-                val serverUrl = WebServerContext.serverUrl.collectAsState().value
-                if (serverUrl.isNotEmpty()) {
-                    Text(text = "也可以扫码输入")
+            val serverUrl = WebServerContext.serverUrl.collectAsState().value
+            if (serverUrl.isNotEmpty()) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .weight(0.42f),
+                    verticalArrangement = spacedBy(10.dp)
+                ) {
+                    AulamaSectionHeader(
+                        title = stringResource(R.string.search_mobile_input),
+                        modifier = Modifier.padding(horizontal = 0.dp),
+                        accent = AulamaTvColors.Pink
+                    )
                     val img = remember(serverUrl) {
                         val bitMatrix =
                             QRCodeWriter().encode(serverUrl, BarcodeFormat.QR_CODE, 512, 512)
@@ -133,9 +152,24 @@ fun SearchScreen(viewModel: SearchViewModel) {
                         bitmap
                     }
 
-                    AsyncImage(model = img, contentDescription = "qr code")
+                    AsyncImage(
+                        model = img,
+                        contentDescription = stringResource(R.string.search_mobile_input),
+                        modifier = Modifier
+                            .size(230.dp)
+                            .background(androidx.compose.ui.graphics.Color.White, AulamaCardShape)
+                            .border(1.dp, AulamaTvColors.Outline, AulamaCardShape)
+                            .padding(10.dp)
+                    )
                 }
-
+                Spacer(modifier = Modifier.width(24.dp))
+                Box(
+                    modifier = Modifier
+                        .width(1.dp)
+                        .fillMaxHeight()
+                        .background(AulamaTvColors.Outline)
+                )
+                Spacer(modifier = Modifier.width(24.dp))
             }
 
             val searchHistory = viewModel.searchHistoryPager.collectAsLazyPagingItems()
@@ -143,11 +177,14 @@ fun SearchScreen(viewModel: SearchViewModel) {
             if (searchHistory.loadState.refresh is LoadState.NotLoading && searchHistory.itemCount > 0) {
                 Column(
                     Modifier
-                        .padding(20.dp)
                         .fillMaxHeight()
                         .weight(1f)
                 ) {
-                    Text(text = "搜索历史")
+                    AulamaSectionHeader(
+                        title = stringResource(R.string.search_history),
+                        modifier = Modifier.padding(horizontal = 0.dp),
+                        accent = AulamaTvColors.Amber
+                    )
                     Spacer(modifier = Modifier.height(10.dp))
                     SearchHistoryColumn(viewModel = viewModel, onKeywordClick = onSearch)
 
@@ -208,8 +245,15 @@ fun InputKeywordRow(onSearch: (String) -> Unit) {
         FocusRequester()
     }
     val sttState by speechToTextParser.state.collectAsState()
-    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        IconButton(
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 18.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        AulamaIconButton(
+            icon = if (sttState.isSpeaking) Icons.Rounded.Stop else Icons.Rounded.Mic,
+            contentDescription = stringResource(R.string.speak_search_keyword),
             onClick = {
                 if (sttState.isSpeaking) {
                     speechToTextParser.stopListening()
@@ -221,23 +265,9 @@ fun InputKeywordRow(onSearch: (String) -> Unit) {
                     }
                 }
             },
-            scale = ButtonScale.None,
-            modifier = Modifier.focusRequester(speechFocusRequester)
-        ) {
-            AnimatedContent(targetState = sttState.isSpeaking, label = "") { isSpeaking ->
-                if (isSpeaking) {
-                    Icon(
-                        imageVector = Icons.Rounded.Stop,
-                        tint = colorResource(id = R.color.red400),
-                        contentDescription = "stop"
-                    )
-                } else {
-                    Icon(
-                        imageVector = Icons.Rounded.Mic, contentDescription = "speak"
-                    )
-                }
-            }
-        }
+            modifier = Modifier.focusRequester(speechFocusRequester),
+            accent = if (sttState.isSpeaking) AulamaTvColors.Pink else AulamaTvColors.Cyan
+        )
         Spacer(modifier = Modifier.width(20.dp))
         CustomTextField(
             value = inputKeyword,
@@ -253,15 +283,16 @@ fun InputKeywordRow(onSearch: (String) -> Unit) {
         )
         Spacer(modifier = Modifier.width(20.dp))
 
-        IconButton(
+        AulamaIconButton(
+            icon = Icons.Default.Search,
+            contentDescription = stringResource(R.string.button_search),
             onClick = {
                 onSearch(inputKeyword.trim())
             },
             enabled = inputKeyword.isNotBlank(),
-            modifier = Modifier.focusRequester(searchButtonFocusRequester)
-        ) {
-            Icon(imageVector = Icons.Default.Search, contentDescription = "search")
-        }
+            modifier = Modifier.focusRequester(searchButtonFocusRequester),
+            accent = AulamaTvColors.Green
+        )
     }
 
     LaunchedEffect(sttState) {
@@ -370,16 +401,23 @@ fun Keyword(
         mutableStateOf(false)
     }
     Surface(onClick = {},
-        scale = ClickableSurfaceScale.None,
+        scale = ClickableSurfaceDefaults.scale(focusedScale = AulamaFocusScale),
+        shape = ClickableSurfaceDefaults.shape(shape = AulamaCardShape),
         border = ClickableSurfaceDefaults.border(
+            border = Border(
+                BorderStroke(1.dp, AulamaTvColors.Outline),
+                shape = AulamaCardShape
+            ),
             focusedBorder = Border(
                 BorderStroke(
                     2.dp, MaterialTheme.colorScheme.border
-                )
+                ),
+                shape = AulamaCardShape
             )
         ),
         colors = ClickableSurfaceDefaults.colors(
-            focusedContainerColor = MaterialTheme.colorScheme.surface
+            containerColor = AulamaTvColors.SurfaceRaised,
+            focusedContainerColor = androidx.compose.ui.graphics.Color(0xFF173A40)
         ),
         modifier = modifier
             .onFocusChanged {
@@ -387,7 +425,7 @@ fun Keyword(
             }
             .customClick(onClick, onLongClick)
     ) {
-        var textModifier = Modifier.padding(8.dp, 4.dp)
+        var textModifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
         if (focused) {
             textModifier = textModifier.basicMarquee()
         }

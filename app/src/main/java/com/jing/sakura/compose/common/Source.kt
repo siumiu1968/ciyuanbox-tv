@@ -1,6 +1,7 @@
 package com.jing.sakura.compose.common
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -24,6 +25,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -46,7 +48,7 @@ fun ChangeSourceDialog(
     onChangeSource: (sourceId: String) -> Unit,
 ) {
     val defaultIndex = remember(allSources, currentSourceId) {
-        allSources.indexOfFirst { it.sourceId == currentSourceId }
+        allSources.indexOfFirst { it.sourceId == currentSourceId }.coerceAtLeast(0)
     }
     Dialog(
         onDismissRequest = onDismissRequest,
@@ -59,13 +61,18 @@ fun ChangeSourceDialog(
         }
         Column(
             modifier = Modifier
-                .clip(RoundedCornerShape(10.dp))
-                .background(MaterialTheme.colorScheme.surface)
+                .clip(AulamaCardShape)
+                .background(AulamaTvColors.Surface)
+                .border(1.dp, AulamaTvColors.Outline, AulamaCardShape)
                 .padding(20.dp)
                 .width(400.dp)
 
         ) {
-            Text(text = stringResource(R.string.choose_animation_source))
+            Text(
+                text = stringResource(R.string.choose_animation_source),
+                style = MaterialTheme.typography.headlineSmall,
+                color = AulamaTvColors.TextPrimary
+            )
             Spacer(modifier = Modifier.height(10.dp))
             TvLazyColumn(state = listState, content = {
                 items(count = allSources.size) { sourceIndex ->
@@ -106,12 +113,21 @@ fun SourceItem(
     val interactionSource = remember {
         MutableInteractionSource()
     }
-    Text(text = source.name,
+    Text(text = source.name.toDisplayLineName(),
         color = textColor,
         modifier = modifier
             .fillMaxWidth()
-            .background(if (focused) colorResource(id = R.color.gray800) else Color.Transparent)
-            .padding(10.dp)
+            .graphicsLayer {
+                scaleX = if (focused) AulamaFocusScale else 1f
+                scaleY = if (focused) AulamaFocusScale else 1f
+            }
+            .background(if (focused) AulamaTvColors.SurfaceRaised else Color.Transparent, AulamaCardShape)
+            .border(
+                width = if (focused) 2.dp else 1.dp,
+                color = if (focused) AulamaTvColors.FocusBorder else AulamaTvColors.Outline,
+                shape = AulamaCardShape
+            )
+            .padding(horizontal = 12.dp, vertical = 10.dp)
             .onFocusChanged {
                 focused = it.isFocused || it.hasFocus
             }

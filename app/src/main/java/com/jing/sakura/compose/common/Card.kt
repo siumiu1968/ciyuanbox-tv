@@ -1,7 +1,5 @@
 package com.jing.sakura.compose.common
 
-import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -23,7 +21,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.key.KeyEvent
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
@@ -44,7 +41,7 @@ fun VideoCard(
     title: String,
     subTitle: String = "",
     sourceName: String = "",
-    focusScale: Float = 1.1f,
+    focusScale: Float = AulamaFocusScale,
     onKeyEvent: ((KeyEvent) -> Boolean)? = null,
     onLongClick: (() -> Unit)? = null,
     onClick: () -> Unit = {},
@@ -52,13 +49,7 @@ fun VideoCard(
     var focused by remember {
         mutableStateOf(false)
     }
-    val accentColor = rememberPosterAccentColor(imageUrl = imageUrl, enabled = true)
     val posterRequest = rememberPosterImageRequest(imageUrl = imageUrl)
-    val borderColor by animateColorAsState(
-        targetValue = if (focused) accentColor.copy(alpha = 0.92f) else Color.Transparent,
-        animationSpec = tween(durationMillis = 90),
-        label = "cardBorder"
-    )
     Surface(
         modifier = modifier
             .onFocusChanged {
@@ -72,17 +63,20 @@ fun VideoCard(
             pressedContainerColor = Color.Transparent
         ),
         scale = ClickableSurfaceDefaults.scale(focusedScale = focusScale),
-        shape = ClickableSurfaceDefaults.shape(shape = RoundedCornerShape(24.dp)),
+        shape = ClickableSurfaceDefaults.shape(shape = AulamaCardShape),
         border = ClickableSurfaceDefaults.border(
+            border = Border(
+                BorderStroke(1.dp, AulamaTvColors.Outline)
+            ),
             focusedBorder = Border(
-                BorderStroke(2.dp, accentColor)
+                BorderStroke(2.dp, AulamaTvColors.FocusBorder)
             )
         )
     ) {
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .clip(RoundedCornerShape(24.dp))
+                .clip(AulamaCardShape)
         ) {
             AsyncImage(
                 model = posterRequest,
@@ -97,9 +91,9 @@ fun VideoCard(
                         Brush.verticalGradient(
                             listOf(
                                 Color.Transparent,
-                                Color(0x180B1120),
-                                Color(0x44091426),
-                                Color(0xE40A1020)
+                                Color(0x18000000),
+                                Color(0x66000000),
+                                Color(0xF2070A0F)
                             )
                         )
                     )
@@ -108,8 +102,11 @@ fun VideoCard(
                 modifier = Modifier
                     .fillMaxSize()
                     .border(
-                        border = BorderStroke(3.dp, borderColor),
-                        shape = RoundedCornerShape(24.dp)
+                        border = BorderStroke(
+                            if (focused) 2.dp else 1.dp,
+                            if (focused) AulamaTvColors.FocusBorder else AulamaTvColors.Outline
+                        ),
+                        shape = AulamaCardShape
                     )
             )
             Column(
@@ -120,25 +117,24 @@ fun VideoCard(
             ) {
                 if (sourceName.isNotEmpty()) {
                     Text(
-                        text = sourceName,
+                        text = sourceName.toDisplayLineName(),
                         maxLines = 1,
                         style = MaterialTheme.typography.labelSmall,
-                        color = Color(0xFFC8D8FF)
+                        color = AulamaTvColors.Cyan
                     )
                 }
                 Text(
                     text = title,
                     maxLines = 1,
                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
-                    color = Color.White
+                    color = AulamaTvColors.TextPrimary
                 )
                 if (subTitle.isNotEmpty()) {
                     Text(
                         text = subTitle,
                         style = MaterialTheme.typography.titleSmall,
                         maxLines = 1,
-                        color = Color(0xFFD8E0FF),
-                        modifier = Modifier.graphicsLayer { alpha = 0.88f }
+                        color = AulamaTvColors.TextSecondary
                     )
                 }
             }

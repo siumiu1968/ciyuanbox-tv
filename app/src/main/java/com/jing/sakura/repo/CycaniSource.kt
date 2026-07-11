@@ -92,7 +92,9 @@ class CycaniSource(private val okHttpClient: OkHttpClient) : AnimationSource {
         val playLists = mutableListOf<AnimePlayList>()
         for (item in playFromArray.asJsonObjects()) {
             val code = item.string("code")
-            val lineName = localizeText(item.string("name")).ifBlank { code }
+            val lineName = localizeText(item.string("name"))
+                .ifBlank { code }
+                .normalizePlayLineName()
             if (code.isBlank()) continue
 
             val episodesJson = apiGetDataArray(
@@ -588,6 +590,19 @@ class CycaniSource(private val okHttpClient: OkHttpClient) : AnimationSource {
         text.any { ch ->
             ch in '\u3040'..'\u30ff' || ch in '\u31f0'..'\u31ff'
         }
+
+    private fun String.normalizePlayLineName(): String {
+        val value = trim()
+        return if (
+            value.equals("CYC", ignoreCase = true) ||
+            value.startsWith("CYC_", ignoreCase = true) ||
+            value.startsWith("CYC-", ignoreCase = true)
+        ) {
+            "主線路"
+        } else {
+            value
+        }
+    }
 
     private data class NavItem(
         val typeId: String,

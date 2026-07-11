@@ -3,7 +3,10 @@
 package com.jing.sakura.compose.screen
 
 import android.util.Log
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -43,6 +46,8 @@ import com.jing.sakura.compose.common.ConfirmDeleteDialog
 import com.jing.sakura.compose.common.ErrorTip
 import com.jing.sakura.compose.common.Loading
 import com.jing.sakura.compose.common.VideoCard
+import com.jing.sakura.compose.common.AulamaPageHeader
+import com.jing.sakura.compose.common.AulamaTvColors
 import com.jing.sakura.detail.DetailActivity
 import com.jing.sakura.history.HistoryViewModel
 import com.jing.sakura.room.VideoHistoryEntity
@@ -66,8 +71,8 @@ fun VideoHistoryScreen(viewModel: HistoryViewModel) {
     }
 
 
-    val containerWidth = dimensionResource(id = R.dimen.history_poster_width) * 1.1f
-    val containerHeight = dimensionResource(id = R.dimen.history_poster_height) * 1.1f
+    val containerWidth = dimensionResource(id = R.dimen.history_poster_width) * 1.08f
+    val containerHeight = dimensionResource(id = R.dimen.history_poster_height) * 1.08f
     val context = LocalContext.current
     val gridState = rememberTvLazyGridState()
     val coroutineScope = rememberCoroutineScope()
@@ -77,26 +82,25 @@ fun VideoHistoryScreen(viewModel: HistoryViewModel) {
     val firstVideoFocusRequester = remember {
         FocusRequester()
     }
-    Box(modifier = Modifier.fillMaxSize()) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(AulamaTvColors.Background)
+    ) {
         TvLazyVerticalGrid(
             columns = TvGridCells.Adaptive(containerWidth),
             modifier = Modifier
                 .fillMaxSize(),
             state = gridState,
+            contentPadding = PaddingValues(horizontal = 18.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
             content = {
                 item(span = { TvGridItemSpan(maxLineSpan) }) {
-                    Row(verticalAlignment = Alignment.Bottom) {
-                        Text(
-                            text = stringResource(R.string.playback_history),
-                            style = MaterialTheme.typography.titleLarge,
-                        )
-
-                        Spacer(modifier = Modifier.width(20.dp))
-                        Text(
-                            text = stringResource(R.string.click_ok_del_tip),
-                            style = MaterialTheme.typography.bodySmall
-                        )
-                    }
+                    AulamaPageHeader(
+                        title = stringResource(R.string.playback_history),
+                        subtitle = stringResource(R.string.click_ok_del_tip)
+                    )
                 }
                 items(
                     count = pagingItems.itemCount,

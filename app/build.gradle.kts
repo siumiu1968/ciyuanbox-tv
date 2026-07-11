@@ -5,6 +5,8 @@ plugins {
     id("org.jetbrains.kotlin.plugin.serialization")
 }
 
+val tvKeystorePath = providers.environmentVariable("TV_KEYSTORE_PATH").orNull
+
 android {
     namespace = "com.jing.sakura"
     compileSdk = 34
@@ -13,8 +15,8 @@ android {
         applicationId = "com.codex.ciyuanbox.tv"
         minSdk = 21
         targetSdk = 34
-        versionCode = 1004
-        versionName = "2.3.6-ciyuanbox2"
+        versionCode = 1005
+        versionName = "2.4.0"
 
     }
     packaging {
@@ -25,9 +27,23 @@ android {
             excludes.add("META-INF/*")
         }
     }
+    signingConfigs {
+        create("release") {
+            if (!tvKeystorePath.isNullOrBlank()) {
+                storeFile = file(tvKeystorePath)
+                storePassword = providers.environmentVariable("TV_KEYSTORE_PASSWORD").get()
+                keyAlias = providers.environmentVariable("TV_KEY_ALIAS").get()
+                keyPassword = providers.environmentVariable("TV_KEY_PASSWORD").get()
+            }
+        }
+    }
     buildTypes {
         release {
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = if (tvKeystorePath.isNullOrBlank()) {
+                signingConfigs.getByName("debug")
+            } else {
+                signingConfigs.getByName("release")
+            }
             isMinifyEnabled = false
             proguardFiles("proguard-rules.pro")
         }
@@ -118,8 +134,6 @@ dependencies {
     implementation("io.insert-koin:koin-core:3.5.0")
     implementation("io.insert-koin:koin-android:3.5.0")
     implementation("io.insert-koin:koin-androidx-compose:3.4.5")
-
-    implementation("androidx.palette:palette-ktx:1.0.0")
 
     // https://mvnrepository.com/artifact/com.google.zxing/core
     implementation("com.google.zxing:core:3.5.1")

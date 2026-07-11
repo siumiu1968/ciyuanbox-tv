@@ -1,7 +1,9 @@
 package com.jing.sakura.compose.screen
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -24,6 +26,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
@@ -33,6 +36,8 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.dimensionResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.ui.window.DialogProperties
 import androidx.paging.LoadState
 import androidx.paging.compose.LazyPagingItems
@@ -56,6 +61,11 @@ import com.jing.sakura.compose.common.ErrorTip
 import com.jing.sakura.compose.common.FocusGroup
 import com.jing.sakura.compose.common.Loading
 import com.jing.sakura.compose.common.VideoCard
+import com.jing.sakura.compose.common.AulamaActionButton
+import com.jing.sakura.compose.common.AulamaCardShape
+import com.jing.sakura.compose.common.AulamaFocusScale
+import com.jing.sakura.compose.common.AulamaPageHeader
+import com.jing.sakura.compose.common.AulamaTvColors
 import com.jing.sakura.data.AnimeData
 import com.jing.sakura.data.Resource
 import com.jing.sakura.detail.DetailActivity
@@ -96,7 +106,12 @@ fun AnimeCategoryScreen(viewModel: CategoryViewModel) {
         }
 
         is LoadState.Error -> {
-            ErrorTip(message = "加载失败:${refreshState.error.message}") {
+            ErrorTip(
+                message = androidx.compose.ui.res.stringResource(
+                    R.string.error_category_load_template,
+                    refreshState.error.message ?: refreshState.error.toString()
+                )
+            ) {
                 pagingItems.refresh()
             }
             return
@@ -143,21 +158,36 @@ fun VideoGrid(
     val gridState = rememberTvLazyGridState()
     val cardWidth = dimensionResource(id = R.dimen.poster_width)
     val cardHeight = dimensionResource(id = R.dimen.poster_height)
-    val scale = 1.1f
+    val scale = 1.08f
     val containerWidth = cardWidth * scale
     val containerHeight = cardHeight * scale
     val firstItemFocusRequester = remember {
         FocusRequester()
     }
     val coroutineScope = rememberCoroutineScope()
-    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(AulamaTvColors.Background),
+        contentAlignment = Alignment.Center
+    ) {
         TvLazyVerticalGrid(
             columns = TvGridCells.Adaptive(containerWidth),
             state = gridState,
             modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(horizontal = 18.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
             content = {
                 item(span = { TvGridItemSpan(maxLineSpan) }) {
-                    Text(text = "搜索结果", style = MaterialTheme.typography.headlineMedium)
+                    AulamaPageHeader(title = androidx.compose.ui.res.stringResource(R.string.category_title)) {
+                        AulamaActionButton(
+                            label = androidx.compose.ui.res.stringResource(R.string.category_filter),
+                            icon = Icons.Default.FilterList,
+                            accent = AulamaTvColors.Amber,
+                            onClick = { onLongClick(null) }
+                        )
+                    }
                 }
                 items(
                     count = pagingItems.itemCount,
@@ -203,13 +233,12 @@ fun VideoGrid(
 
 
         if (pagingItems.itemCount == 0) {
-            Text(
-                text = "什么都没有哦",
-                style = MaterialTheme.typography.bodyLarge,
-                modifier = Modifier
-                    .focusRequester(firstItemFocusRequester)
-                    .focusable()
-                    .clickable { onLongClick(null) }
+            AulamaActionButton(
+                label = androidx.compose.ui.res.stringResource(R.string.category_filter),
+                icon = Icons.Default.FilterList,
+                accent = AulamaTvColors.Amber,
+                modifier = Modifier.focusRequester(firstItemFocusRequester),
+                onClick = { onLongClick(null) }
             )
             LaunchedEffect(Unit) {
                 kotlin.runCatching { firstItemFocusRequester.requestFocus() }
@@ -250,8 +279,16 @@ fun VideoCategoryDialog(
     }
     AlertDialog(
         onDismissRequest = onApply,
-        confirmButton = {},
-        title = { Text(text = "选择分类") },
+        confirmButton = {
+            AulamaActionButton(
+                label = androidx.compose.ui.res.stringResource(R.string.category_apply),
+                accent = AulamaTvColors.Green,
+                onClick = onApply
+            )
+        },
+        title = { Text(text = androidx.compose.ui.res.stringResource(R.string.category_choose)) },
+        shape = AulamaCardShape,
+        containerColor = AulamaTvColors.Surface,
         properties = DialogProperties(usePlatformDefaultWidth = false),
         text = {
             val defaultFocusRequester = remember {
@@ -337,14 +374,22 @@ fun FocusableFilterChip(
     }
     androidx.compose.material3.FilterChip(selected = selected, onClick = onClick, label = {
         Text(text = text)
-    }, border = if (focused) androidx.compose.material3.FilterChipDefaults.filterChipBorder(
+    }, shape = AulamaCardShape, colors = androidx.compose.material3.FilterChipDefaults.filterChipColors(
+        containerColor = AulamaTvColors.SurfaceRaised,
+        selectedContainerColor = AulamaTvColors.Cyan.copy(alpha = 0.28f)
+    ), border = if (focused) androidx.compose.material3.FilterChipDefaults.filterChipBorder(
         borderColor = MaterialTheme.colorScheme.border,
         selectedBorderColor = MaterialTheme.colorScheme.border,
         borderWidth = 2.dp,
         selectedBorderWidth = 2.dp
     ) else androidx.compose.material3.FilterChipDefaults.filterChipBorder(
-        borderColor = Color.Transparent, selectedBorderColor = Color.Transparent
-    ), modifier = modifier.onFocusChanged {
-        focused = it.isFocused || it.hasFocus
-    })
+        borderColor = AulamaTvColors.Outline, selectedBorderColor = AulamaTvColors.Outline
+    ), modifier = modifier
+        .graphicsLayer {
+            scaleX = if (focused) AulamaFocusScale else 1f
+            scaleY = if (focused) AulamaFocusScale else 1f
+        }
+        .onFocusChanged {
+            focused = it.isFocused || it.hasFocus
+        })
 }

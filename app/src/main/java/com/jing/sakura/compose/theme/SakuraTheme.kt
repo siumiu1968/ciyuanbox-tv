@@ -5,40 +5,41 @@ import androidx.compose.ui.graphics.Color
 import androidx.tv.material3.ExperimentalTvMaterial3Api
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.darkColorScheme
+import com.jing.sakura.compose.common.AulamaTvColors
 
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
 fun SakuraTheme(content: @Composable () -> Unit) {
     val tvDarkColors = darkColorScheme(
-        primary = Color(0xFFF4F6FF),
-        onPrimary = Color(0xFF0A1020),
-        primaryContainer = Color(0xFF7F5CFF),
-        onPrimaryContainer = Color(0xFFFFFFFF),
-        secondary = Color(0xFF8DE7FF),
-        onSecondary = Color(0xFF08131F),
-        secondaryContainer = Color(0xFF12354F),
-        onSecondaryContainer = Color(0xFFE1F8FF),
-        tertiary = Color(0xFFFF82C9),
-        onTertiary = Color(0xFF230916),
-        tertiaryContainer = Color(0xFF4B2145),
-        onTertiaryContainer = Color(0xFFFFE3F3),
-        background = Color(0xFF070C18),
-        onBackground = Color(0xFFF2F5FF),
-        surface = Color(0xFF101828),
-        onSurface = Color(0xFFF5F7FF),
-        surfaceVariant = Color(0xFF18233A),
-        onSurfaceVariant = Color(0xFFC7D2F2),
-        surfaceTint = Color(0xFF8F7CFF),
-        inverseSurface = Color(0xFFF3F6FF),
-        inverseOnSurface = Color(0xFF0D1527),
+        primary = AulamaTvColors.Cyan,
+        onPrimary = Color(0xFF041013),
+        primaryContainer = Color(0xFF123A40),
+        onPrimaryContainer = Color(0xFFD9FBFF),
+        secondary = AulamaTvColors.Pink,
+        onSecondary = Color(0xFF220510),
+        secondaryContainer = Color(0xFF49182E),
+        onSecondaryContainer = Color(0xFFFFD9E8),
+        tertiary = AulamaTvColors.Amber,
+        onTertiary = Color(0xFF201800),
+        tertiaryContainer = Color(0xFF433710),
+        onTertiaryContainer = Color(0xFFFFEDB6),
+        background = AulamaTvColors.Background,
+        onBackground = AulamaTvColors.TextPrimary,
+        surface = AulamaTvColors.Surface,
+        onSurface = AulamaTvColors.TextPrimary,
+        surfaceVariant = AulamaTvColors.SurfaceRaised,
+        onSurfaceVariant = AulamaTvColors.TextSecondary,
+        surfaceTint = AulamaTvColors.Cyan,
+        inverseSurface = Color(0xFFE7EEF2),
+        inverseOnSurface = Color(0xFF11171D),
         error = Color(0xFFFF7B8D),
         onError = Color(0xFF320A14),
         errorContainer = Color(0xFF4D1622),
         onErrorContainer = Color(0xFFFFDCE3),
-        border = Color(0xFF8F7CFF),
-        borderVariant = Color(0xFF293450),
-        scrim = Color(0xCC03060D)
+        border = AulamaTvColors.FocusBorder,
+        borderVariant = AulamaTvColors.Outline,
+        scrim = Color(0xD9000306)
     )
 
     val material3ThemeColors = androidx.compose.material3.darkColorScheme(

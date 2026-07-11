@@ -139,8 +139,6 @@ class SakuraExoPlaybackEngine(
         handler.post(progressTicker)
     }
 
-    fun setShaderChain(shaderChain: String) = Unit
-
     fun togglePlayPause() {
         player.playWhenReady = !player.playWhenReady
     }

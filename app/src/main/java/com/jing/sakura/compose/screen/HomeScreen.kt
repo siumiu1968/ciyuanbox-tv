@@ -2,6 +2,7 @@ package com.jing.sakura.compose.screen
 
 import androidx.annotation.ColorRes
 import androidx.annotation.StringRes
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -71,6 +72,7 @@ import androidx.tv.foundation.lazy.list.TvLazyRow
 import androidx.tv.foundation.lazy.list.rememberTvLazyListState
 import androidx.tv.material3.Button
 import androidx.tv.material3.ButtonDefaults
+import androidx.tv.material3.Border
 import androidx.tv.material3.ExperimentalTvMaterial3Api
 import androidx.tv.material3.MaterialTheme
 import com.jing.sakura.R
@@ -78,6 +80,11 @@ import com.jing.sakura.category.AnimeCategoryActivity
 import com.jing.sakura.compose.common.ErrorTip
 import com.jing.sakura.compose.common.FocusGroup
 import com.jing.sakura.compose.common.Loading
+import com.jing.sakura.compose.common.AulamaCardShape
+import com.jing.sakura.compose.common.AulamaFocusScale
+import com.jing.sakura.compose.common.AulamaSectionHeader
+import com.jing.sakura.compose.common.AulamaTvColors
+import com.jing.sakura.compose.common.ChangeSourceDialog
 import com.jing.sakura.compose.common.rememberDpadRepeatGate
 import com.jing.sakura.compose.common.UpAndDownFocusProperties
 import com.jing.sakura.compose.common.Value
@@ -85,6 +92,7 @@ import com.jing.sakura.compose.common.VideoCard
 import com.jing.sakura.compose.common.applyUpAndDown
 import com.jing.sakura.compose.common.getValue
 import com.jing.sakura.compose.common.setValue
+import com.jing.sakura.compose.common.toDisplayLineName
 import com.jing.sakura.data.AnimeData
 import com.jing.sakura.data.HomePageData
 import com.jing.sakura.data.NamedValue
@@ -101,6 +109,7 @@ import java.util.Calendar
 fun HomeScreen(viewModel: HomeViewModel) {
     val context = LocalContext.current
     val currentSource = viewModel.currentSource.collectAsState().value
+    var showSourceDialog by remember { mutableStateOf(false) }
     val buttons = remember(currentSource) {
         listOf(
             HomeScreenButton(
@@ -133,6 +142,13 @@ fun HomeScreen(viewModel: HomeViewModel) {
                 label = R.string.button_anime_category
             ) {
                 AnimeCategoryActivity.startActivity(context, viewModel.currentSourceId)
+            },
+            HomeScreenButton(
+                icon = Icons.Default.ChangeCircle,
+                backgroundColor = R.color.fuchsia400,
+                label = R.string.button_change_anime_source
+            ) {
+                showSourceDialog = true
             },
             HomeScreenButton(
                 icon = Icons.Default.Refresh,
@@ -211,35 +227,10 @@ fun HomeScreen(viewModel: HomeViewModel) {
     }
 
     Box(
-        modifier = Modifier.fillMaxSize()
+        modifier = Modifier
+            .fillMaxSize()
+            .background(AulamaTvColors.Background)
     ) {
-        Image(
-            painter = painterResource(id = R.drawable.home_backdrop),
-            contentDescription = null,
-            contentScale = ContentScale.Crop,
-            modifier = Modifier
-                .fillMaxSize()
-                .graphicsLayer {
-                    alpha = 0.38f
-                    scaleX = 1.08f
-                    scaleY = 1.08f
-                }
-        )
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    Brush.linearGradient(
-                        listOf(
-                            Color(0xD9090C16),
-                            Color(0xC4102444),
-                            Color(0xB83A1750),
-                            Color(0xB0124952),
-                            Color(0xD9080C18)
-                        )
-                    )
-                )
-        )
         val columnState = rememberTvLazyListState()
         TvLazyColumn(
             state = columnState,
@@ -249,13 +240,13 @@ fun HomeScreen(viewModel: HomeViewModel) {
                     HomeTitleRow(
                         buttonList = buttons,
                         title = stringResource(id = R.string.app_name),
-                        subtitle = "",
+                        subtitle = currentSource.name.toDisplayLineName(),
                         focusRequester = focusRequesterRows.topButtonRow,
                         upAndDownFocusProperties = UpAndDownFocusProperties(
                             down = focusRequesterRows.seriesRows.firstOrNull()
                         ),
-                        iconSize = 50.dp,
-                        iconFocusedScale = 1.25f
+                        iconSize = 46.dp,
+                        iconFocusedScale = AulamaFocusScale
                     )
                     Spacer(modifier = Modifier.height(10.dp))
                     LaunchedEffect(renderedSectionCount) {
@@ -421,6 +412,18 @@ fun HomeScreen(viewModel: HomeViewModel) {
         }
     }
 
+    if (showSourceDialog) {
+        ChangeSourceDialog(
+            allSources = viewModel.getAllSources(),
+            currentSourceId = viewModel.currentSourceId,
+            onDismissRequest = { showSourceDialog = false },
+            onChangeSource = { sourceId ->
+                showSourceDialog = false
+                viewModel.changeSource(sourceId)
+            }
+        )
+    }
+
 }
 
 @OptIn(
@@ -512,55 +515,13 @@ private fun WeeklyUpdatesSection(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 18.dp, vertical = 10.dp)
-                .clip(RoundedCornerShape(30.dp))
-                .background(
-                    Brush.linearGradient(
-                        listOf(
-                            selectedAccent.copy(alpha = 0.18f),
-                            Color(0x8C102440),
-                            selectedAccent.copy(alpha = 0.28f),
-                            Color(0x880D1630)
-                        )
-                    )
-                )
-                .border(
-                    width = 1.dp,
-                    color = selectedAccent.copy(alpha = 0.26f),
-                    shape = RoundedCornerShape(30.dp)
-                )
-                .padding(horizontal = 20.dp, vertical = 18.dp)
+                .padding(vertical = 10.dp)
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text(
-                        text = stringResource(id = R.string.home_weekly_updates),
-                        style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
-                        color = Color(0xFFF7F8FF)
-                    )
-                }
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(999.dp))
-                        .background(selectedAccent.copy(alpha = 0.18f))
-                        .border(
-                            width = 1.dp,
-                            color = selectedAccent.copy(alpha = 0.32f),
-                            shape = RoundedCornerShape(999.dp)
-                        )
-                        .padding(horizontal = 12.dp, vertical = 7.dp)
-                ) {
-                    Text(
-                        text = "${selectedVideos.size} 套",
-                        style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
-                        color = Color.White
-                    )
-                }
-            }
+            AulamaSectionHeader(
+                title = stringResource(id = R.string.home_weekly_updates),
+                count = selectedVideos.size,
+                accent = selectedAccent
+            )
             Spacer(modifier = Modifier.height(14.dp))
             TvLazyRow(
                 modifier = Modifier
@@ -581,10 +542,21 @@ private fun WeeklyUpdatesSection(
                         onClick = { onSelectedIndexChanged(index) },
                         scale = ButtonDefaults.scale(focusedScale = 1.05f),
                         colors = ButtonDefaults.colors(
-                            containerColor = if (isSelected) accent else Color(0x334A5A8B),
-                            focusedContainerColor = if (isSelected) accent.copy(alpha = 0.95f) else Color(0xFF496899)
+                            containerColor = if (isSelected) accent.copy(alpha = 0.28f) else AulamaTvColors.SurfaceRaised,
+                            focusedContainerColor = accent,
+                            focusedContentColor = Color(0xFF061014)
                         ),
-                        shape = ButtonDefaults.shape(shape = RoundedCornerShape(18.dp)),
+                        shape = ButtonDefaults.shape(shape = AulamaCardShape),
+                        border = ButtonDefaults.border(
+                            border = Border(
+                                BorderStroke(1.dp, AulamaTvColors.Outline),
+                                shape = AulamaCardShape
+                            ),
+                            focusedBorder = Border(
+                                BorderStroke(2.dp, AulamaTvColors.FocusBorder),
+                                shape = AulamaCardShape
+                            )
+                        ),
                         modifier = Modifier
                             .focusRequester(tabFocusRequesters[index])
                             .focusProperties {
@@ -779,77 +751,23 @@ fun TvLazyListScope.videoRows(
 
     val focusScale = 1.04f
     val verticalPadding = videoWidth * (((focusScale - 1) / 2) + 0.01f)
-    val sectionGradients = listOf(
-        listOf(Color(0xCC0F233B), Color(0xCC0C7F90), Color(0xCC162E40)),
-        listOf(Color(0xCC2C1635), Color(0xCCB04C72), Color(0xCC2C1933)),
-        listOf(Color(0xCC1C2646), Color(0xCC5562E8), Color(0xCC162945)),
-        listOf(Color(0xCC342112), Color(0xCCB66B2C), Color(0xCC341A22)),
-        listOf(Color(0xCC173229), Color(0xCC1E8D7A), Color(0xCC1A2F39))
+    val sectionAccents = listOf(
+        AulamaTvColors.Cyan,
+        AulamaTvColors.Pink,
+        AulamaTvColors.Amber,
+        AulamaTvColors.Green,
+        Color(0xFF75A7FF)
     )
     for ((groupIndex, videoGroup) in videoSeries.withIndex()) {
         val (groupName, videos) = videoGroup
-        val sectionColors = sectionGradients[groupIndex % sectionGradients.size]
-        val displayGroupName = when {
-            groupName.contains("劇場") -> "劇場番組"
-            groupName.contains("TV") -> "季度新番"
-            else -> groupName
-        }
-        val sectionSubtitle = when {
-            groupName.contains("劇場") -> "劇場版・OVA・特別篇"
-            groupName.contains("TV") -> "季度連載 / 新番更新"
-            else -> "精選片單"
-        }
+        val sectionAccent = sectionAccents[groupIndex % sectionAccents.size]
         item(key = sourceId to "t$groupName") {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(start = 18.dp, end = 18.dp, top = 16.dp, bottom = 10.dp)
-                    .clip(RoundedCornerShape(22.dp))
-                    .background(
-                        Brush.horizontalGradient(
-                            listOf(
-                                sectionColors[0].copy(alpha = 0.72f),
-                                sectionColors[1].copy(alpha = 0.68f),
-                                sectionColors[2].copy(alpha = 0.72f)
-                            )
-                        )
-                    )
-                    .border(
-                        width = 1.dp,
-                        color = Color.White.copy(alpha = 0.08f),
-                        shape = RoundedCornerShape(22.dp)
-                    )
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                    Text(
-                        text = displayGroupName,
-                        style = MaterialTheme.typography.headlineSmall.copy(
-                            color = Color(0xFFF4F6FF),
-                            fontWeight = FontWeight.Bold
-                        )
-                    )
-                    Text(
-                        text = sectionSubtitle,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = Color(0xFFD7DFFB)
-                    )
-                }
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(999.dp))
-                        .background(Color.White.copy(alpha = 0.12f))
-                        .padding(horizontal = 12.dp, vertical = 6.dp)
-                ) {
-                    Text(
-                        text = "${videos.size} 套",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = Color(0xFFD4DCF9)
-                    )
-                }
-            }
+            AulamaSectionHeader(
+                title = groupName,
+                count = videos.size,
+                accent = sectionAccent,
+                modifier = Modifier.padding(top = 8.dp)
+            )
         }
         item(key = sourceId to groupName) {
             val consumeRapidDpad = rememberDpadRepeatGate()
@@ -878,19 +796,7 @@ fun TvLazyListScope.videoRows(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 18.dp)
-                    .clip(RoundedCornerShape(28.dp))
-                    .background(
-                        Brush.linearGradient(
-                            sectionColors.map { it.copy(alpha = 0.56f) }
-                        )
-                    )
-                    .border(
-                        width = 1.dp,
-                        color = Color.White.copy(alpha = 0.07f),
-                        shape = RoundedCornerShape(28.dp)
-                    )
-                    .padding(vertical = 14.dp)
+                    .padding(vertical = 4.dp)
             ) {
                 TvLazyRow(
                     state = rowListState,
@@ -1022,18 +928,8 @@ fun HomeTitleRow(
         Box(
             modifier = modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 14.dp)
-                .clip(RoundedCornerShape(30.dp))
-                .background(
-                    Brush.linearGradient(
-                        listOf(
-                            Color(0xD90F253B),
-                            Color(0xD91E6E86),
-                            Color(0xCCAA4F68)
-                        )
-                    )
-                )
-                .padding(horizontal = 18.dp, vertical = 18.dp)
+                .background(AulamaTvColors.Surface)
+                .padding(horizontal = 24.dp, vertical = 14.dp)
         ) {
             Row(
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -1063,10 +959,20 @@ fun HomeTitleRow(
                         val label = stringResource(id = btn.label)
                         Button(
                             onClick = btn.onClick,
-                            shape = ButtonDefaults.shape(shape = CircleShape),
-                            scale = ButtonDefaults.scale(focusedScale = iconFocusedScale),
+                            shape = ButtonDefaults.shape(shape = AulamaCardShape),
+                            scale = ButtonDefaults.scale(focusedScale = iconFocusedScale.coerceIn(1.04f, 1.06f)),
+                            border = ButtonDefaults.border(
+                                border = Border(
+                                    BorderStroke(1.dp, AulamaTvColors.Outline),
+                                    shape = AulamaCardShape
+                                ),
+                                focusedBorder = Border(
+                                    BorderStroke(2.dp, AulamaTvColors.FocusBorder),
+                                    shape = AulamaCardShape
+                                )
+                            ),
                             colors = ButtonDefaults.colors(
-                                containerColor = bgColor,
+                                containerColor = AulamaTvColors.SurfaceRaised,
                                 focusedContainerColor = bgColor
                             ),
                             modifier = Modifier
@@ -1086,22 +992,18 @@ fun HomeTitleRow(
                     }
                 }
                 Column(horizontalAlignment = Alignment.End) {
+                    Image(
+                        painter = painterResource(id = R.drawable.aulama_anime_wordmark),
+                        contentDescription = title,
+                        modifier = Modifier.size(width = 220.dp, height = 78.dp)
+                    )
                     if (subtitle.isNotBlank()) {
                         Text(
                             text = subtitle,
-                            style = MaterialTheme.typography.titleMedium,
-                            color = Color(0xFFD2DBFF)
+                            style = MaterialTheme.typography.labelLarge,
+                            color = AulamaTvColors.TextSecondary
                         )
-                        Spacer(modifier = Modifier.height(4.dp))
                     }
-                    Text(
-                        text = title,
-                        style = MaterialTheme.typography.headlineLarge.copy(
-                            fontSize = MaterialTheme.typography.headlineLarge.fontSize * 1.2,
-                            fontWeight = FontWeight.Bold
-                        ),
-                        color = Color.White
-                    )
                 }
             }
         }

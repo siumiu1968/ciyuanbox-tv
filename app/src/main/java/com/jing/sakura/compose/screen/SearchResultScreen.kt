@@ -2,9 +2,11 @@
 
 package com.jing.sakura.compose.screen
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
@@ -22,6 +24,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.dimensionResource
 import androidx.compose.ui.unit.dp
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ChangeCircle
 import androidx.paging.LoadState
 import androidx.paging.compose.collectAsLazyPagingItems
 import androidx.paging.compose.itemKey
@@ -38,7 +42,11 @@ import com.jing.sakura.compose.common.ChangeSourceDialog
 import com.jing.sakura.compose.common.ErrorTip
 import com.jing.sakura.compose.common.Loading
 import com.jing.sakura.compose.common.VideoCard
+import com.jing.sakura.compose.common.AulamaActionButton
+import com.jing.sakura.compose.common.AulamaPageHeader
+import com.jing.sakura.compose.common.AulamaTvColors
 import com.jing.sakura.compose.common.safelyRequestFocus
+import com.jing.sakura.compose.common.toDisplayLineName
 import com.jing.sakura.detail.DetailActivity
 import com.jing.sakura.search.SearchResultViewModel
 
@@ -50,14 +58,19 @@ fun SearchResultScreen(viewModel: SearchResultViewModel) {
     val gridState = rememberTvLazyGridState()
     val cardWidth = dimensionResource(id = R.dimen.poster_width)
     val cardHeight = dimensionResource(id = R.dimen.poster_height)
-    val scale = 1.1f
+    val scale = 1.08f
     val containerWidth = cardWidth * scale
     val containerHeight = cardHeight * scale
     val itemCount = pagingItems.itemCount
     var showChooseSourceDialog by remember {
         mutableStateOf(false)
     }
-    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(AulamaTvColors.Background),
+        contentAlignment = Alignment.Center
+    ) {
         val firstItemFocusRequester = remember {
             FocusRequester()
         }
@@ -65,16 +78,24 @@ fun SearchResultScreen(viewModel: SearchResultViewModel) {
             columns = TvGridCells.Adaptive(containerWidth),
             state = gridState,
             modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(horizontal = 18.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
             content = {
                 item(span = { TvGridItemSpan(maxLineSpan) }) {
-                    Row(horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text(
-                            text = stringResource(R.string.search_result_title),
-                            style = MaterialTheme.typography.headlineMedium
-                        )
-                        Text(
-                            text = viewModel.sourceName,
-                            style = MaterialTheme.typography.headlineMedium
+                    AulamaPageHeader(
+                        title = stringResource(R.string.search_result_title),
+                        subtitle = stringResource(
+                            R.string.source_label_template,
+                            viewModel.sourceName.toDisplayLineName()
+                        ),
+                        modifier = Modifier
+                    ) {
+                        AulamaActionButton(
+                            label = stringResource(R.string.button_change_source),
+                            icon = Icons.Default.ChangeCircle,
+                            accent = AulamaTvColors.Pink,
+                            onClick = { showChooseSourceDialog = true }
                         )
                     }
                 }
@@ -98,9 +119,7 @@ fun SearchResultScreen(viewModel: SearchResultViewModel) {
                                 imageUrl = video.imageUrl,
                                 title = video.title,
                                 subTitle = video.currentEpisode,
-                                onLongClick = {
-                                    showChooseSourceDialog = true
-                                }
+                                onLongClick = { showChooseSourceDialog = true }
                             ) {
                                 DetailActivity.startActivity(context, video.id, viewModel.sourceId)
                             }
@@ -129,13 +148,15 @@ fun SearchResultScreen(viewModel: SearchResultViewModel) {
                 val focusRequester = remember {
                     FocusRequester()
                 }
-                Button(
+                AulamaActionButton(
+                    label = stringResource(R.string.button_change_source),
                     modifier = Modifier.focusRequester(focusRequester),
+                    icon = Icons.Default.ChangeCircle,
+                    accent = AulamaTvColors.Pink,
                     onClick = {
                         showChooseSourceDialog = true
-                    }) {
-                    Text(text = stringResource(R.string.button_change_source))
-                }
+                    }
+                )
                 LaunchedEffect(Unit) {
                     focusRequester.requestFocus()
                 }

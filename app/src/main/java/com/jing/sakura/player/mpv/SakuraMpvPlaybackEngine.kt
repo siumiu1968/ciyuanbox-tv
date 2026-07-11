@@ -99,14 +99,6 @@ class SakuraMpvPlaybackEngine(
         }
     }
 
-    fun setShaderChain(shaderChain: String) {
-        try {
-            MPVLib.setPropertyString("glsl-shaders", shaderChain)
-        } catch (e: Exception) {
-            callback.onError("套用 Anime4K 失敗：${e.message}")
-        }
-    }
-
     fun togglePlayPause() {
         if (isPlaying) pause() else play()
     }

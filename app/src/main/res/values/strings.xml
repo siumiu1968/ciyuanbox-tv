@@ -1,25 +1,25 @@
 <resources>
-    <string name="app_name">次元匣</string>
-    <string name="home_subtitle">新番追更．劇場珍藏．今晚開播</string>
-    <string name="home_weekly_updates">本週更新</string>
+    <string name="app_name">Aulama Anime TV</string>
+    <string name="home_subtitle">Aulama Anime TV</string>
+    <string name="home_weekly_updates">星期節目</string>
     <string name="speak_search_keyword">請說出要搜尋的內容</string>
     <string name="input_search_keyword">輸入關鍵字</string>
     <string name="button_retry">重試</string>
     <string name="related_videos">相關動漫</string>
     <string name="video_description">簡介</string>
     <string name="playback_history">歷史記錄</string>
-    <string name="click_ok_del_tip">長按【OK】刪除</string>
+    <string name="click_ok_del_tip">長按確認鍵刪除</string>
     <string name="grid_no_data_tip">這裡暫時沒有內容</string>
     <string name="confirm_delete_template">是否刪除 %s？</string>
     <string name="button_delete_all">全部刪除</string>
     <string name="button_delete">刪除</string>
-    <string name="choose_animation_source">選擇動漫源</string>
+    <string name="choose_animation_source">選擇內容來源</string>
     <string name="button_search">搜尋</string>
-    <string name="anime_update_timeline">更新時間表</string>
-    <string name="button_anime_category">影片分類</string>
-    <string name="button_change_anime_source">切換動漫源</string>
+    <string name="anime_update_timeline">星期時間表</string>
+    <string name="button_anime_category">分類瀏覽</string>
+    <string name="button_change_anime_source">切換內容來源</string>
     <string name="button_refresh">重新整理</string>
-    <string name="timeline_title">更新時間表</string>
+    <string name="timeline_title">星期時間表</string>
     <string name="timeline_monday">週一</string>
     <string name="timeline_tuesday">週二</string>
     <string name="timeline_wednesday">週三</string>
@@ -38,4 +38,11 @@
     <string name="player_exit_confirm">再按一次返回以退出播放</string>
     <string name="error_request_failed_template">請求資料失敗：%1$s</string>
     <string name="error_category_load_template">查詢可選分類失敗：%1$s</string>
+    <string name="search_history">搜尋記錄</string>
+    <string name="search_mobile_input">手機輸入</string>
+    <string name="category_title">分類瀏覽</string>
+    <string name="category_filter">篩選</string>
+    <string name="category_choose">選擇分類</string>
+    <string name="category_apply">套用</string>
+    <string name="source_label_template">來源：%1$s</string>
 </resources>

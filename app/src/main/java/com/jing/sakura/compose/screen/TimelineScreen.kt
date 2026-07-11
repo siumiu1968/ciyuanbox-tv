@@ -4,6 +4,7 @@ package com.jing.sakura.compose.screen
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
 import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -32,6 +33,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.graphics.Color
 import androidx.tv.foundation.ExperimentalTvFoundationApi
 import androidx.tv.foundation.lazy.list.TvLazyColumn
 import androidx.tv.foundation.lazy.list.TvLazyRow
@@ -45,6 +47,10 @@ import androidx.tv.material3.Surface
 import com.jing.sakura.compose.common.ErrorTip
 import com.jing.sakura.compose.common.FocusGroup
 import com.jing.sakura.compose.common.Loading
+import com.jing.sakura.compose.common.AulamaCardShape
+import com.jing.sakura.compose.common.AulamaFocusScale
+import com.jing.sakura.compose.common.AulamaPageHeader
+import com.jing.sakura.compose.common.AulamaTvColors
 import com.jing.sakura.data.AnimeData
 import com.jing.sakura.data.Resource
 import com.jing.sakura.data.UpdateTimeLine
@@ -54,13 +60,14 @@ import com.jing.sakura.timeline.TimelineViewModel
 @Composable
 fun TimelineScreen(viewModel: TimelineViewModel) {
     val timeline = viewModel.timelines.collectAsState().value
-    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(AulamaTvColors.Background),
+        contentAlignment = Alignment.Center
+    ) {
         Column(Modifier.fillMaxSize()) {
-            Text(
-                text = stringResource(com.jing.sakura.R.string.timeline_title),
-                style = MaterialTheme.typography.headlineMedium
-            )
-            Spacer(modifier = Modifier.height(15.dp))
+            AulamaPageHeader(title = stringResource(com.jing.sakura.R.string.timeline_title))
             if (timeline is Resource.Success) {
                 TimeLine(timeline.data, sourceId = viewModel.sourceId)
             }
@@ -81,8 +88,20 @@ fun TimeLine(data: UpdateTimeLine, sourceId: String) {
         FocusRequester()
     }
     val rowState = rememberTvLazyListState(data.current)
+    val accents = remember {
+        listOf(
+            AulamaTvColors.Cyan,
+            Color(0xFF75A7FF),
+            AulamaTvColors.Pink,
+            AulamaTvColors.Amber,
+            AulamaTvColors.Green
+        )
+    }
     TvLazyRow(
         state = rowState,
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(horizontal = 18.dp, vertical = 8.dp),
+        horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(12.dp),
         content = {
         items(count = data.timeline.size, key = { data.timeline[it].first }) { idx ->
             val timeline = data.timeline[idx]
@@ -96,7 +115,8 @@ fun TimeLine(data: UpdateTimeLine, sourceId: String) {
                 },
                 name = timeline.first,
                 animeList = timeline.second,
-                sourceId = sourceId
+                sourceId = sourceId,
+                accent = accents[idx % accents.size]
             )
         }
     })
@@ -115,22 +135,28 @@ fun TimeLineColumn(
     modifier: Modifier = Modifier,
     name: String,
     animeList: List<AnimeData>,
-    sourceId: String
+    sourceId: String,
+    accent: Color
 ) {
     val context = LocalContext.current
     FocusGroup(modifier = modifier) {
         Column(
             Modifier
-                .padding(horizontal = 10.dp)
                 .fillMaxSize()
         ) {
             Text(
                 text = name,
                 style = MaterialTheme.typography.titleMedium,
-                modifier = Modifier.fillMaxWidth(),
+                color = AulamaTvColors.TextPrimary,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(accent.copy(alpha = 0.22f), AulamaCardShape)
+                    .padding(horizontal = 12.dp, vertical = 10.dp),
                 textAlign = TextAlign.Center
             )
             TvLazyColumn(
+                contentPadding = PaddingValues(vertical = 8.dp),
+                verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp),
                 content = {
                 items(count = animeList.size, key = { animeList[it].url }) { idx ->
                     val anime = animeList[idx]
@@ -141,7 +167,6 @@ fun TimeLineColumn(
                             } else {
                                 restorableFocus()
                             }
-                                .padding(vertical = 2.dp)
                         },
                         name = anime.title
                     ) {
@@ -169,19 +194,28 @@ fun AnimeName(
             focused = it.hasFocus || it.isFocused
         },
         onClick = onClick,
-        scale = ClickableSurfaceScale.None,
+        scale = ClickableSurfaceDefaults.scale(focusedScale = AulamaFocusScale),
+        shape = ClickableSurfaceDefaults.shape(shape = AulamaCardShape),
         border = ClickableSurfaceDefaults.border(
-            focusedBorder = Border(BorderStroke(2.dp, MaterialTheme.colorScheme.border))
+            border = Border(
+                BorderStroke(1.dp, AulamaTvColors.Outline),
+                shape = AulamaCardShape
+            ),
+            focusedBorder = Border(
+                BorderStroke(2.dp, AulamaTvColors.FocusBorder),
+                shape = AulamaCardShape
+            )
         ),
         colors = ClickableSurfaceDefaults.colors(
-            focusedContainerColor = MaterialTheme.colorScheme.surface
+            containerColor = AulamaTvColors.SurfaceRaised,
+            focusedContainerColor = Color(0xFF173A40)
         )
     ) {
         Text(
             text = name,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.padding(6.dp, 4.dp).run {
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp).run {
                 if (focused) {
                     basicMarquee()
                 } else {

@@ -42,13 +42,19 @@ fun ConfirmDeleteDialog(
                 focusedContentColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
             ),
             border = ButtonDefaults.border(
+                border = Border(
+                    BorderStroke(1.dp, AulamaTvColors.Outline),
+                    shape = AulamaCardShape
+                ),
                 focusedBorder = Border(
                     BorderStroke(
                         2.dp, MaterialTheme.colorScheme.border
-                    )
+                    ),
+                    shape = AulamaCardShape
                 )
             ),
-            shape = ButtonDefaults.shape(shape = androidx.compose.material3.MaterialTheme.shapes.medium)
+            shape = ButtonDefaults.shape(shape = AulamaCardShape),
+            scale = ButtonDefaults.scale(focusedScale = AulamaFocusScale)
         ) {
             Text(text = stringResource(R.string.button_delete_all))
         }
@@ -63,17 +69,23 @@ fun ConfirmDeleteDialog(
                 focusedContentColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
             ),
             border = ButtonDefaults.border(
+                border = Border(
+                    BorderStroke(1.dp, AulamaTvColors.Outline),
+                    shape = AulamaCardShape
+                ),
                 focusedBorder = Border(
                     BorderStroke(
                         2.dp, MaterialTheme.colorScheme.border
-                    )
+                    ),
+                    shape = AulamaCardShape
                 )
             ),
-            shape = ButtonDefaults.shape(shape = androidx.compose.material3.MaterialTheme.shapes.medium),
+            shape = ButtonDefaults.shape(shape = AulamaCardShape),
+            scale = ButtonDefaults.scale(focusedScale = AulamaFocusScale),
         ) {
             Text(text = stringResource(R.string.button_delete))
         }
-    }, text = {
+    }, shape = AulamaCardShape, containerColor = AulamaTvColors.Surface, text = {
         Text(
             text = text, modifier = Modifier.focusable()
         )

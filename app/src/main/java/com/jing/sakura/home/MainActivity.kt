@@ -26,7 +26,7 @@ class MainActivity : ComponentActivity() {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .background(MaterialTheme.colorScheme.surface)
+                        .background(MaterialTheme.colorScheme.background)
                 ) {
                     CompositionLocalProvider(
                         androidx.tv.material3.LocalContentColor provides MaterialTheme.colorScheme.onSurface,

@@ -45,17 +45,11 @@ fun CustomTextField(
             .clickable(onClick = {
                 focusText = true
             })
-            .run {
-                if (focused) {
-                    border(
-                        1.dp,
-                        color = MaterialTheme.colorScheme.border,
-                        shape = MaterialTheme.shapes.small
-                    )
-                } else {
-                    this
-                }
-            }
+            .border(
+                width = if (focused) 2.dp else 1.dp,
+                color = if (focused) AulamaTvColors.FocusBorder else AulamaTvColors.Outline,
+                shape = AulamaCardShape
+            )
             .focusable()
     ) {
         val focusRequester = remember {
@@ -65,9 +59,11 @@ fun CustomTextField(
             colors = TextFieldDefaults.colors(
                 focusedIndicatorColor = Color.Transparent,
                 unfocusedIndicatorColor = Color.Transparent,
-                disabledIndicatorColor = Color.Transparent
+                disabledIndicatorColor = Color.Transparent,
+                focusedContainerColor = AulamaTvColors.SurfaceRaised,
+                unfocusedContainerColor = AulamaTvColors.SurfaceRaised
             ),
-            shape = androidx.compose.material3.MaterialTheme.shapes.small,
+            shape = AulamaCardShape,
             value = value,
             onValueChange = onValueChange,
             modifier = Modifier

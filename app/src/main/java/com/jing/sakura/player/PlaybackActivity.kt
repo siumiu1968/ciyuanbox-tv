@@ -1,6 +1,5 @@
 package com.jing.sakura.player
 
-import android.app.AlertDialog
 import android.content.Context
 import android.content.Intent
 import android.os.Build
@@ -97,7 +96,6 @@ class PlaybackActivity : FragmentActivity(), SakuraExoPlaybackEngine.Callback {
         setupButtons()
         setupProgressBar()
         setupFocusEffects(
-            binding.buttonAnime4k,
             binding.buttonEpisodeList,
             binding.buttonPreviousEpisode,
             binding.buttonRewind,
@@ -288,14 +286,6 @@ class PlaybackActivity : FragmentActivity(), SakuraExoPlaybackEngine.Callback {
             showOverlay(focusPrimary = false, autoHide = false)
         }
         binding.buttonBackDetail.setOnClickListener { exitPlayback() }
-        binding.buttonAnime4k.setOnClickListener {
-            AlertDialog.Builder(this)
-                .setTitle("4K 升頻暫停使用")
-                .setMessage("而家已經先回退到穩定播放器，優先修復黑畫面、0:00 同退出卡住問題。4K 升頻會喺之後用另一條較穩定嘅方案再補回。")
-                .setPositiveButton("知道了", null)
-                .show()
-            showOverlay(focusPrimary = false)
-        }
     }
 
     private fun setupProgressBar() {
@@ -383,6 +373,7 @@ class PlaybackActivity : FragmentActivity(), SakuraExoPlaybackEngine.Callback {
     private fun showLoading(message: String) {
         hasLoadedCurrentVideo = false
         binding.playerLoading.isVisible = true
+        binding.playerLoadingText.text = message
         binding.playerErrorText.isGone = true
         binding.playerEpisodeText.text = message
     }
@@ -463,8 +454,6 @@ class PlaybackActivity : FragmentActivity(), SakuraExoPlaybackEngine.Callback {
         hasLoadedCurrentVideo = true
         hideLoading()
         binding.playerTitleText.text = currentTitle
-        binding.buttonAnime4k.text = "4K"
-        binding.buttonAnime4k.isSelected = false
         showOverlay(focusPrimary = false)
     }
 

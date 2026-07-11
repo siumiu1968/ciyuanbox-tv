@@ -26,13 +26,35 @@
         android:background="#12000000"
         android:visibility="gone" />
 
-    <ProgressBar
+    <LinearLayout
         android:id="@+id/player_loading"
-        android:layout_width="60dp"
-        android:layout_height="60dp"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
         android:layout_gravity="center"
-        android:indeterminateTint="@android:color/white"
-        android:visibility="gone" />
+        android:gravity="center"
+        android:orientation="vertical"
+        android:visibility="gone">
+
+        <ImageView
+            android:layout_width="96dp"
+            android:layout_height="96dp"
+            android:contentDescription="@string/app_name"
+            android:src="@drawable/aulama_anime_icon" />
+
+        <ProgressBar
+            android:layout_width="30dp"
+            android:layout_height="30dp"
+            android:layout_marginTop="10dp"
+            android:indeterminateTint="#20C7D9" />
+
+        <TextView
+            android:id="@+id/player_loading_text"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:textColor="#B9C4CE"
+            android:textSize="15sp" />
+    </LinearLayout>
 
     <TextView
         android:id="@+id/player_error_text"
@@ -241,27 +263,6 @@
                     android:padding="10dp"
                     android:src="@drawable/ic_player_forward_10"
                     android:tint="@android:color/white" />
-
-                <TextView
-                    android:id="@+id/button_anime4k"
-                    android:layout_width="58dp"
-                    android:layout_height="40dp"
-                    android:layout_marginEnd="5dp"
-                    android:background="@drawable/player_chip_selector"
-                    android:clickable="true"
-                    android:focusable="true"
-                    android:focusableInTouchMode="true"
-                    android:gravity="center"
-                    android:nextFocusUp="@id/player_progress_bar"
-                    android:paddingStart="8dp"
-                    android:paddingTop="8dp"
-                    android:paddingEnd="8dp"
-                    android:paddingBottom="8dp"
-                    android:text="4K OFF"
-                    android:textColor="@android:color/white"
-                    android:textSize="11sp"
-                    android:textStyle="bold"
-                    android:visibility="gone" />
 
                 <ImageView
                     android:id="@+id/button_next_episode"
