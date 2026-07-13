@@ -45,4 +45,11 @@
     <string name="category_choose">選擇分類</string>
     <string name="category_apply">套用</string>
     <string name="source_label_template">來源：%1$s</string>
+    <string name="update_title">發現新版本 %1$s</string>
+    <string name="update_body">新版已準備好，可直接下載並交由系統安裝。</string>
+    <string name="update_download">下載更新</string>
+    <string name="update_later">稍後</string>
+    <string name="update_downloading">正在下載更新</string>
+    <string name="update_install_permission">請允許 Aulama Anime TV 安裝更新</string>
+    <string name="update_install_failed">無法開啟安裝程式</string>
 </resources>

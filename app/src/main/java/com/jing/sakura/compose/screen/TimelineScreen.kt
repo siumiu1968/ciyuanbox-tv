@@ -51,6 +51,7 @@ import com.jing.sakura.compose.common.AulamaCardShape
 import com.jing.sakura.compose.common.AulamaFocusScale
 import com.jing.sakura.compose.common.AulamaPageHeader
 import com.jing.sakura.compose.common.AulamaTvColors
+import com.jing.sakura.compose.common.aulamaTvBackground
 import com.jing.sakura.data.AnimeData
 import com.jing.sakura.data.Resource
 import com.jing.sakura.data.UpdateTimeLine
@@ -63,7 +64,7 @@ fun TimelineScreen(viewModel: TimelineViewModel) {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(AulamaTvColors.Background),
+            .aulamaTvBackground(),
         contentAlignment = Alignment.Center
     ) {
         Column(Modifier.fillMaxSize()) {

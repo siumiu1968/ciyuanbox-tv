@@ -2,7 +2,6 @@
 
 package com.jing.sakura.compose.screen
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -45,6 +44,7 @@ import com.jing.sakura.compose.common.VideoCard
 import com.jing.sakura.compose.common.AulamaActionButton
 import com.jing.sakura.compose.common.AulamaPageHeader
 import com.jing.sakura.compose.common.AulamaTvColors
+import com.jing.sakura.compose.common.aulamaTvBackground
 import com.jing.sakura.compose.common.safelyRequestFocus
 import com.jing.sakura.compose.common.toDisplayLineName
 import com.jing.sakura.detail.DetailActivity
@@ -68,7 +68,7 @@ fun SearchResultScreen(viewModel: SearchResultViewModel) {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(AulamaTvColors.Background),
+            .aulamaTvBackground(),
         contentAlignment = Alignment.Center
     ) {
         val firstItemFocusRequester = remember {

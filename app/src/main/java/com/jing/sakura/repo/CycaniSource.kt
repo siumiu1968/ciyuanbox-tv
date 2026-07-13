@@ -23,6 +23,7 @@ import kotlinx.coroutines.coroutineScope
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.OkHttpClient
 import java.util.Calendar
+import org.jsoup.Jsoup
 import org.jsoup.nodes.Element
 
 class CycaniSource(private val okHttpClient: OkHttpClient) : AnimationSource {
@@ -50,7 +51,7 @@ class CycaniSource(private val okHttpClient: OkHttpClient) : AnimationSource {
             animeList.takeIf { it.isNotEmpty() }?.let { NamedValue(name, it) }
         }
 
-        val groups = fetchOfficialHomeGroups().ifEmpty {
+        val groups = runCatching { fetchOfficialHomeGroups() }.getOrDefault(emptyList()).ifEmpty {
             val navItems = fetchNavItems()
             val preferredItems = navItems.filter { it.typeId in setOf("20", "21") }
                 .ifEmpty { navItems.take(2) }
@@ -83,6 +84,7 @@ class CycaniSource(private val okHttpClient: OkHttpClient) : AnimationSource {
         }
         val description = localizeText(
             detail.string("vod_content").ifBlank { detail.string("vod_blurb") }
+                .let { Jsoup.parse(it).text() }
         )
         val imageUrl = detail.string("vod_pic").ifBlank {
             throw RuntimeException(trad("未找到番剧封面"))
@@ -226,10 +228,8 @@ class CycaniSource(private val okHttpClient: OkHttpClient) : AnimationSource {
                 AnimationSource.VideoUrlResult(
                     url = finalUrl,
                     headers = linkedMapOf(
-                        "user-agent" to DESKTOP_USER_AGENT,
-                        "referer" to WEB_BASE_URL,
-                        "origin" to "https://www.cycani.org",
-                        "accept" to "*/*"
+                        "User-Agent" to DESKTOP_USER_AGENT,
+                        "Accept" to "*/*"
                     )
                 )
             )

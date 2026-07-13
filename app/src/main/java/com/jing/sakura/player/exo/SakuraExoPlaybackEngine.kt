@@ -111,11 +111,14 @@ class SakuraExoPlaybackEngine(
         hasDispatchedFileLoaded = false
         val mergedHeaders = linkedMapOf(
             "User-Agent" to DEFAULT_USER_AGENT,
-            "Referer" to DEFAULT_REFERER,
-            "Origin" to DEFAULT_ORIGIN,
             "Accept" to DEFAULT_ACCEPT
         ).apply {
-            putAll(headers.filterValues { it.isNotBlank() })
+            headers.forEach { (name, value) ->
+                if (value.isNotBlank()) {
+                    keys.firstOrNull { it.equals(name, ignoreCase = true) }?.let(::remove)
+                    put(name.canonicalHttpHeaderName(), value)
+                }
+            }
         }
         val dataSourceFactory = OkHttpDataSource.Factory { request ->
             okHttpClient.newCall(request)
@@ -169,8 +172,11 @@ class SakuraExoPlaybackEngine(
 
     companion object {
         private const val DEFAULT_USER_AGENT = "cyc-desktop/1.0.8"
-        private const val DEFAULT_REFERER = "https://www.cycani.org/"
-        private const val DEFAULT_ORIGIN = "https://www.cycani.org"
         private const val DEFAULT_ACCEPT = "*/*"
     }
+
+    private fun String.canonicalHttpHeaderName(): String =
+        split('-').joinToString("-") { segment ->
+            segment.lowercase().replaceFirstChar { it.uppercase() }
+        }
 }

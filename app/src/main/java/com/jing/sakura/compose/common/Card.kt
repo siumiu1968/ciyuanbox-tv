@@ -65,9 +65,7 @@ fun VideoCard(
         scale = ClickableSurfaceDefaults.scale(focusedScale = focusScale),
         shape = ClickableSurfaceDefaults.shape(shape = AulamaCardShape),
         border = ClickableSurfaceDefaults.border(
-            border = Border(
-                BorderStroke(1.dp, AulamaTvColors.Outline)
-            ),
+            border = Border(BorderStroke(1.dp, AulamaTvColors.Outline.copy(alpha = 0.72f))),
             focusedBorder = Border(
                 BorderStroke(2.dp, AulamaTvColors.FocusBorder)
             )
@@ -93,7 +91,7 @@ fun VideoCard(
                                 Color.Transparent,
                                 Color(0x18000000),
                                 Color(0x66000000),
-                                Color(0xF2070A0F)
+                                Color(0xF2050810)
                             )
                         )
                     )

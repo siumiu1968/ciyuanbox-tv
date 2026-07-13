@@ -3,7 +3,6 @@
 package com.jing.sakura.compose.screen
 
 import android.util.Log
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
@@ -48,6 +47,7 @@ import com.jing.sakura.compose.common.Loading
 import com.jing.sakura.compose.common.VideoCard
 import com.jing.sakura.compose.common.AulamaPageHeader
 import com.jing.sakura.compose.common.AulamaTvColors
+import com.jing.sakura.compose.common.aulamaTvBackground
 import com.jing.sakura.detail.DetailActivity
 import com.jing.sakura.history.HistoryViewModel
 import com.jing.sakura.room.VideoHistoryEntity
@@ -85,7 +85,7 @@ fun VideoHistoryScreen(viewModel: HistoryViewModel) {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(AulamaTvColors.Background)
+            .aulamaTvBackground()
     ) {
         TvLazyVerticalGrid(
             columns = TvGridCells.Adaptive(containerWidth),

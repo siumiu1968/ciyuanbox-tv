@@ -4,7 +4,6 @@ package com.jing.sakura.compose.common
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -57,7 +56,7 @@ fun Loading(text: String = "載入中"): Unit {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(AulamaTvColors.Background)
+            .aulamaTvBackground()
     ) {
         Column(
             modifier = Modifier.align(Alignment.Center),
@@ -68,25 +67,25 @@ fun Loading(text: String = "載入中"): Unit {
                 painter = painterResource(id = R.drawable.aulama_anime_icon),
                 contentDescription = null,
                 modifier = Modifier
-                    .size(116.dp)
+                    .size(88.dp)
                     .scale(pulse.value)
             )
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(8.dp))
             Image(
                 painter = painterResource(id = R.drawable.aulama_anime_wordmark),
                 contentDescription = stringResource(R.string.app_name),
                 modifier = Modifier
-                    .size(width = 210.dp, height = 86.dp)
+                    .size(width = 174.dp, height = 64.dp)
                     .alpha(0.96f)
             )
-            Spacer(modifier = Modifier.height(10.dp))
+            Spacer(modifier = Modifier.height(6.dp))
             CircularProgressIndicator(
-                modifier = Modifier.size(28.dp),
+                modifier = Modifier.size(22.dp),
                 color = AulamaTvColors.Cyan,
-                strokeWidth = 3.dp
+                strokeWidth = 2.dp
             )
             if (text.isNotBlank()) {
-                Spacer(modifier = Modifier.height(10.dp))
+                Spacer(modifier = Modifier.height(8.dp))
                 Text(text = text, color = AulamaTvColors.TextSecondary)
             }
         }

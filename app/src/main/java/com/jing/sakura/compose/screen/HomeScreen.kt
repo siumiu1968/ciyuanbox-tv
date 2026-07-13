@@ -90,6 +90,7 @@ import com.jing.sakura.compose.common.UpAndDownFocusProperties
 import com.jing.sakura.compose.common.Value
 import com.jing.sakura.compose.common.VideoCard
 import com.jing.sakura.compose.common.applyUpAndDown
+import com.jing.sakura.compose.common.aulamaTvBackground
 import com.jing.sakura.compose.common.getValue
 import com.jing.sakura.compose.common.setValue
 import com.jing.sakura.compose.common.toDisplayLineName
@@ -110,7 +111,8 @@ fun HomeScreen(viewModel: HomeViewModel) {
     val context = LocalContext.current
     val currentSource = viewModel.currentSource.collectAsState().value
     var showSourceDialog by remember { mutableStateOf(false) }
-    val buttons = remember(currentSource) {
+    val hasMultipleSources = remember { viewModel.getAllSources().size > 1 }
+    val buttons = remember(currentSource, hasMultipleSources) {
         listOf(
             HomeScreenButton(
                 icon = Icons.Default.Search,
@@ -146,6 +148,7 @@ fun HomeScreen(viewModel: HomeViewModel) {
             HomeScreenButton(
                 icon = Icons.Default.ChangeCircle,
                 backgroundColor = R.color.fuchsia400,
+                display = hasMultipleSources,
                 label = R.string.button_change_anime_source
             ) {
                 showSourceDialog = true
@@ -229,7 +232,7 @@ fun HomeScreen(viewModel: HomeViewModel) {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(AulamaTvColors.Background)
+            .aulamaTvBackground()
     ) {
         val columnState = rememberTvLazyListState()
         TvLazyColumn(
@@ -237,23 +240,7 @@ fun HomeScreen(viewModel: HomeViewModel) {
             modifier = Modifier.fillMaxWidth(),
             content = {
                 item {
-                    HomeTitleRow(
-                        buttonList = buttons,
-                        title = stringResource(id = R.string.app_name),
-                        subtitle = currentSource.name.toDisplayLineName(),
-                        focusRequester = focusRequesterRows.topButtonRow,
-                        upAndDownFocusProperties = UpAndDownFocusProperties(
-                            down = focusRequesterRows.seriesRows.firstOrNull()
-                        ),
-                        iconSize = 46.dp,
-                        iconFocusedScale = AulamaFocusScale
-                    )
-                    Spacer(modifier = Modifier.height(10.dp))
-                    LaunchedEffect(renderedSectionCount) {
-                        if (renderedSectionCount == 0) {
-                            focusRequesterRows.topButtonRow.requestFocus()
-                        }
-                    }
+                    Spacer(modifier = Modifier.height(82.dp))
                 }
                 if (weeklySeries.isNotEmpty()) {
                     item(key = currentSource.sourceId to "weekly-home") {
@@ -283,6 +270,13 @@ fun HomeScreen(viewModel: HomeViewModel) {
                                         focusRequesterRows.seriesRows.first().requestFocus()
                                     }
                                     true
+                                }
+                            },
+                            onNavigateToTop = {
+                                coroutineScope.launch {
+                                    columnState.animateScrollToItem(0)
+                                    repeat(2) { withFrameNanos { } }
+                                    focusRequesterRows.topButtonRow.requestFocus()
                                 }
                             },
                             onVideoFocused = { groupName, video ->
@@ -351,6 +345,25 @@ fun HomeScreen(viewModel: HomeViewModel) {
                 }
             }
         )
+
+        HomeTitleRow(
+            modifier = Modifier.align(Alignment.TopCenter),
+            buttonList = buttons,
+            title = stringResource(id = R.string.app_name),
+            subtitle = if (hasMultipleSources) currentSource.name.toDisplayLineName() else "",
+            focusRequester = focusRequesterRows.topButtonRow,
+            upAndDownFocusProperties = UpAndDownFocusProperties(
+                down = focusRequesterRows.seriesRows.firstOrNull()
+            ),
+            iconSize = 46.dp,
+            iconFocusedScale = AulamaFocusScale
+        )
+
+        LaunchedEffect(renderedSectionCount) {
+            if (renderedSectionCount == 0) {
+                focusRequesterRows.topButtonRow.requestFocus()
+            }
+        }
 
         val seriesList = normalSeries
         LaunchedEffect(displayData) {
@@ -443,6 +456,7 @@ private fun WeeklyUpdatesSection(
     focusRequester: FocusRequester,
     upAndDownFocusProperties: UpAndDownFocusProperties,
     onBackPressed: () -> Boolean,
+    onNavigateToTop: () -> Unit,
     onVideoFocused: (groupName: String, video: AnimeData) -> Unit,
     onRequestRefresh: () -> Unit,
     onClick: (AnimeData) -> Unit
@@ -584,8 +598,8 @@ private fun WeeklyUpdatesSection(
                                     }
 
                                     Key.DirectionUp -> {
-                                        upAndDownFocusProperties.up?.requestFocus()
-                                        upAndDownFocusProperties.up != null
+                                        onNavigateToTop()
+                                        true
                                     }
 
                                     else -> false
@@ -920,22 +934,35 @@ fun HomeTitleRow(
     iconFocusedScale: Float = 1.1f
 ) {
     val consumeRapidDpad = rememberDpadRepeatGate()
-    val iconPadding = iconSize / 4
     val displayButtons = remember(buttonList) {
         buttonList.filter { it.display }
     }
-    FocusGroup(Modifier.focusRequester(focusRequester)) {
+    FocusGroup {
         Box(
             modifier = modifier
                 .fillMaxWidth()
                 .background(AulamaTvColors.Surface)
-                .padding(horizontal = 24.dp, vertical = 14.dp)
+                .padding(horizontal = 24.dp, vertical = 12.dp)
         ) {
             Row(
-                horizontalArrangement = Arrangement.SpaceBetween,
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                Image(
+                    painter = painterResource(id = R.drawable.aulama_anime_wordmark),
+                    contentDescription = title,
+                    modifier = Modifier.size(width = 188.dp, height = 58.dp)
+                )
+                if (subtitle.isNotBlank()) {
+                    Spacer(modifier = Modifier.size(12.dp))
+                    Text(
+                        text = subtitle,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = AulamaTvColors.TextSecondary,
+                        maxLines = 1
+                    )
+                }
+                Spacer(modifier = Modifier.weight(1f))
                 TvLazyRow(
                     modifier = Modifier.onPreviewKeyEvent {
                         if (consumeRapidDpad(it)) return@onPreviewKeyEvent true
@@ -947,8 +974,8 @@ fun HomeTitleRow(
                             false
                         }
                     },
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    contentPadding = PaddingValues(horizontal = iconSize / 2 * (iconFocusedScale - 1f))
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    contentPadding = PaddingValues(horizontal = 3.dp, vertical = 3.dp)
                 ) {
                     items(
                         count = displayButtons.size,
@@ -963,7 +990,7 @@ fun HomeTitleRow(
                             scale = ButtonDefaults.scale(focusedScale = iconFocusedScale.coerceIn(1.04f, 1.06f)),
                             border = ButtonDefaults.border(
                                 border = Border(
-                                    BorderStroke(1.dp, AulamaTvColors.Outline),
+                                    BorderStroke(1.dp, Color.Transparent),
                                     shape = AulamaCardShape
                                 ),
                                 focusedBorder = Border(
@@ -972,37 +999,35 @@ fun HomeTitleRow(
                                 )
                             ),
                             colors = ButtonDefaults.colors(
-                                containerColor = AulamaTvColors.SurfaceRaised,
-                                focusedContainerColor = bgColor
+                                containerColor = Color.Transparent,
+                                contentColor = AulamaTvColors.TextSecondary,
+                                focusedContainerColor = bgColor,
+                                focusedContentColor = Color(0xFF061014)
                             ),
                             modifier = Modifier
-                                .size(iconSize)
+                                .size(width = 76.dp, height = iconSize)
                                 .focusProperties { applyUpAndDown(upAndDownFocusProperties) }
                                 .run {
-                                    if (btnIndex == 0) initiallyFocused() else restorableFocus()
+                                    if (btnIndex == 0) {
+                                        focusRequester(focusRequester)
+                                    } else {
+                                        restorableFocus()
+                                    }
                                 },
-                            contentPadding = PaddingValues(iconPadding)
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp)
                         ) {
                             Icon(
                                 imageVector = btn.icon,
                                 contentDescription = label,
-                                tint = colorResource(id = btn.tint)
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.size(5.dp))
+                            Text(
+                                text = label,
+                                style = MaterialTheme.typography.labelSmall,
+                                maxLines = 1
                             )
                         }
-                    }
-                }
-                Column(horizontalAlignment = Alignment.End) {
-                    Image(
-                        painter = painterResource(id = R.drawable.aulama_anime_wordmark),
-                        contentDescription = title,
-                        modifier = Modifier.size(width = 220.dp, height = 78.dp)
-                    )
-                    if (subtitle.isNotBlank()) {
-                        Text(
-                            text = subtitle,
-                            style = MaterialTheme.typography.labelLarge,
-                            color = AulamaTvColors.TextSecondary
-                        )
                     }
                 }
             }

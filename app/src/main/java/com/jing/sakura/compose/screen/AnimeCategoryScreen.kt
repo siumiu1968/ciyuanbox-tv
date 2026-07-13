@@ -1,7 +1,6 @@
 package com.jing.sakura.compose.screen
 
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Arrangement
@@ -66,6 +65,7 @@ import com.jing.sakura.compose.common.AulamaCardShape
 import com.jing.sakura.compose.common.AulamaFocusScale
 import com.jing.sakura.compose.common.AulamaPageHeader
 import com.jing.sakura.compose.common.AulamaTvColors
+import com.jing.sakura.compose.common.aulamaTvBackground
 import com.jing.sakura.data.AnimeData
 import com.jing.sakura.data.Resource
 import com.jing.sakura.detail.DetailActivity
@@ -168,7 +168,7 @@ fun VideoGrid(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(AulamaTvColors.Background),
+            .aulamaTvBackground(),
         contentAlignment = Alignment.Center
     ) {
         TvLazyVerticalGrid(

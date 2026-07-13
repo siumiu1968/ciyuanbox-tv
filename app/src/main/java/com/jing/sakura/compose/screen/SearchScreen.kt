@@ -78,6 +78,7 @@ import com.jing.sakura.compose.common.AulamaIconButton
 import com.jing.sakura.compose.common.AulamaPageHeader
 import com.jing.sakura.compose.common.AulamaSectionHeader
 import com.jing.sakura.compose.common.AulamaTvColors
+import com.jing.sakura.compose.common.aulamaTvBackground
 import com.jing.sakura.compose.common.SpeechToTextParser
 import com.jing.sakura.compose.common.customClick
 import com.jing.sakura.compose.common.safelyRequestFocus
@@ -107,7 +108,7 @@ fun SearchScreen(viewModel: SearchViewModel) {
     Column(
         Modifier
             .fillMaxSize()
-            .background(AulamaTvColors.Background)
+            .aulamaTvBackground()
     ) {
         AulamaPageHeader(title = stringResource(R.string.button_search))
         InputKeywordRow(onSearch)

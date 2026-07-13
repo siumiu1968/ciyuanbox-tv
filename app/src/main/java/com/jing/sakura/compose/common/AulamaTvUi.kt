@@ -19,6 +19,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.painterResource
@@ -34,21 +35,34 @@ import androidx.tv.material3.Text
 import com.jing.sakura.R
 
 object AulamaTvColors {
-    val Background = Color(0xFF070A0F)
-    val Surface = Color(0xFF0E131A)
-    val SurfaceRaised = Color(0xFF171E27)
-    val Outline = Color(0xFF34404D)
-    val FocusBorder = Color(0xFF7DEAF2)
-    val Cyan = Color(0xFF20C7D9)
-    val Pink = Color(0xFFFF4F9A)
+    val Background = Color(0xFF050810)
+    val BackgroundTeal = Color(0xFF071922)
+    val BackgroundPlum = Color(0xFF171024)
+    val Surface = Color(0xFF0A111C)
+    val SurfaceRaised = Color(0xFF111C2A)
+    val Outline = Color(0xFF2A3A4E)
+    val FocusBorder = Color(0xFF72EAF2)
+    val Cyan = Color(0xFF32D5E4)
+    val Pink = Color(0xFFFF4E9A)
+    val Blue = Color(0xFF7787FF)
     val Amber = Color(0xFFF4C95D)
     val Green = Color(0xFF58D68D)
     val TextPrimary = Color(0xFFF3F7FA)
-    val TextSecondary = Color(0xFFB9C4CE)
+    val TextSecondary = Color(0xFFAAB8C7)
 }
 
-val AulamaCardShape = RoundedCornerShape(8.dp)
-const val AulamaFocusScale = 1.05f
+val AulamaCardShape = RoundedCornerShape(12.dp)
+const val AulamaFocusScale = 1.035f
+
+fun Modifier.aulamaTvBackground(): Modifier = background(
+    Brush.linearGradient(
+        colorStops = arrayOf(
+            0f to AulamaTvColors.BackgroundTeal,
+            0.42f to AulamaTvColors.Background,
+            1f to AulamaTvColors.BackgroundPlum
+        )
+    )
+)
 
 @Composable
 fun AulamaPageHeader(

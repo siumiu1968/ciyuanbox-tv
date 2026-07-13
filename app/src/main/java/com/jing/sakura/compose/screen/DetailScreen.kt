@@ -232,10 +232,6 @@ fun DetailScreen(viewModel: DetailPageViewModel) {
                     videoDetail = videoDetail,
                     modifier = Modifier
                         .focusRequester(focusRequesters.infoRow),
-                    upAndDownFocusProperties = UpAndDownFocusProperties(
-                        down = focusRequesters.playListReverseButton
-                            ?: focusRequesters.otherAnimeRow
-                    ),
                     playHistory = videoHistory
                 ) {
                     viewModel.loadData()
@@ -267,12 +263,6 @@ fun DetailScreen(viewModel: DetailPageViewModel) {
                     },
                     restoreFocusEpIndex = if (restoreEpisodePosition.value.first == playlistIndex) restoreEpisodePosition.value.second else -1,
                     restoreFocusRequester = restoreEpisodeFocusRequester,
-                    upAndDownFocusProperties = UpAndDownFocusProperties(
-                        up = focusRequesters.playListRows.getOrNull(playlistIndex - 1)
-                            ?: focusRequesters.playListReverseButton, // 上一个播放列表 或者正序倒序按钮
-                        down = focusRequesters.playListRows.getOrNull(playlistIndex + 1)
-                            ?: focusRequesters.otherAnimeRow // 下一个播放列表或者推荐视频
-                    ),
                     title = {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
@@ -309,10 +299,6 @@ fun DetailScreen(viewModel: DetailPageViewModel) {
                                     ),
                                     modifier = Modifier
                                         .focusRequester(focusRequesters.playListReverseButton!!)
-                                        .focusProperties {
-                                            up = focusRequesters.infoRow
-                                            down = focusRequesters.playListRows[0]
-                                        }
                                 ) {
                                     Text(
                                         text = if (reverseEpisode) {
@@ -353,11 +339,7 @@ fun DetailScreen(viewModel: DetailPageViewModel) {
                         videoDetail.otherAnimeList,
                         viewModel.sourceId,
                         Modifier
-                            .focusRequester(focusRequesters.otherAnimeRow!!),
-                        upAndDownFocusProperties = UpAndDownFocusProperties(
-                            up = focusRequesters.playListRows.lastOrNull()
-                                ?: focusRequesters.infoRow
-                        )
+                            .focusRequester(focusRequesters.otherAnimeRow!!)
                     )
                 }
             }
