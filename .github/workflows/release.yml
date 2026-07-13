@@ -33,7 +33,7 @@ jobs:
           TV_KEY_PASSWORD: ${{ secrets.TV_KEY_PASSWORD }}
         run: |
           chmod a+x ./gradlew
-          ./gradlew :app:assembleRelease
+          ./gradlew -Dorg.gradle.java.home="$JAVA_HOME" :app:assembleRelease
       - name: Verify and rename APK
         run: |
           APK="app/build/outputs/apk/release/app-release.apk"
