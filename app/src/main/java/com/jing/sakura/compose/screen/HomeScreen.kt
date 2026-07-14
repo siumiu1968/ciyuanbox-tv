@@ -26,6 +26,7 @@ import androidx.compose.material.icons.filled.ChangeCircle
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -76,6 +77,7 @@ import androidx.tv.material3.Border
 import androidx.tv.material3.ExperimentalTvMaterial3Api
 import androidx.tv.material3.MaterialTheme
 import com.jing.sakura.R
+import com.jing.sakura.auth.AulamaAccount
 import com.jing.sakura.category.AnimeCategoryActivity
 import com.jing.sakura.compose.common.ErrorTip
 import com.jing.sakura.compose.common.FocusGroup
@@ -107,10 +109,15 @@ import kotlinx.coroutines.launch
 import java.util.Calendar
 
 @Composable
-fun HomeScreen(viewModel: HomeViewModel) {
+fun HomeScreen(
+    viewModel: HomeViewModel,
+    account: AulamaAccount,
+    onLogout: () -> Unit
+) {
     val context = LocalContext.current
     val currentSource = viewModel.currentSource.collectAsState().value
     var showSourceDialog by remember { mutableStateOf(false) }
+    var showAccountDialog by remember { mutableStateOf(false) }
     val hasMultipleSources = remember { viewModel.getAllSources().size > 1 }
     val buttons = remember(currentSource, hasMultipleSources) {
         listOf(
@@ -160,9 +167,17 @@ fun HomeScreen(viewModel: HomeViewModel) {
             ) {
                 viewModel.loadData(false)
             },
+            HomeScreenButton(
+                icon = Icons.Default.AccountCircle,
+                backgroundColor = R.color.cyan500,
+                label = R.string.button_account
+            ) {
+                showAccountDialog = true
+            },
         )
     }
     val homePageDataResource = viewModel.homePageData.collectAsState().value
+    val recommendations = viewModel.recommendations.collectAsState().value
 
     val displayData: HomePageData? = when (homePageDataResource) {
         is Resource.Success -> homePageDataResource.data
@@ -170,7 +185,15 @@ fun HomeScreen(viewModel: HomeViewModel) {
         is Resource.Error -> null
     }
 
-    val allSeriesList = displayData?.seriesList ?: emptyList()
+    val sourceSeriesList = displayData?.seriesList ?: emptyList()
+    val allSeriesList = remember(sourceSeriesList, recommendations) {
+        if (recommendations.isEmpty()) {
+            sourceSeriesList
+        } else {
+            listOf(NamedValue("為你推薦", recommendations)) +
+                sourceSeriesList.filterNot { it.name == "為你推薦" }
+        }
+    }
     val weeklySeries = remember(allSeriesList) {
         WEEKDAY_SECTION_NAMES.mapNotNull { name ->
             allSeriesList.firstOrNull { it.name == name }
@@ -192,12 +215,23 @@ fun HomeScreen(viewModel: HomeViewModel) {
         mutableStateOf(0)
     }
 
-    val renderedSectionCount = normalSeries.size + if (weeklySeries.isNotEmpty()) 1 else 0
-    val focusRequesterRows = remember(renderedSectionCount) {
-        HomeScreenFocusRows(
-            topButtonRow = FocusRequester(),
-            seriesRows = List(renderedSectionCount) { FocusRequester() }
-        )
+    val renderedSectionKeys = buildList {
+        if (weeklySeries.isNotEmpty()) add("weekly-home")
+        addAll(normalSeries.map { "series:${it.name}" })
+    }
+    val renderedSectionCount = renderedSectionKeys.size
+    val topButtonFocusRequester = remember(currentSource.sourceId) { FocusRequester() }
+    val keyedRowFocusRequesters = remember(currentSource.sourceId) {
+        mutableMapOf<String, FocusRequester>()
+    }
+    val focusRequesterRows = HomeScreenFocusRows(
+        topButtonRow = topButtonFocusRequester,
+        seriesRows = renderedSectionKeys.map { key ->
+            keyedRowFocusRequesters.getOrPut(key) { FocusRequester() }
+        }
+    )
+    LaunchedEffect(renderedSectionKeys) {
+        keyedRowFocusRequesters.keys.retainAll(renderedSectionKeys.toSet())
     }
     val coroutineScope = rememberCoroutineScope()
     var haveSetDefaultFocus by remember(currentSource.sourceId) {
@@ -288,7 +322,7 @@ fun HomeScreen(viewModel: HomeViewModel) {
                             DetailActivity.startActivity(
                                 context,
                                 it.id,
-                                currentSource.sourceId
+                                it.sourceId
                             )
                         }
                     }
@@ -339,7 +373,7 @@ fun HomeScreen(viewModel: HomeViewModel) {
                         DetailActivity.startActivity(
                             context,
                             it.id,
-                            currentSource.sourceId
+                            it.sourceId
                         )
                     }
                 }
@@ -355,7 +389,7 @@ fun HomeScreen(viewModel: HomeViewModel) {
             upAndDownFocusProperties = UpAndDownFocusProperties(
                 down = focusRequesterRows.seriesRows.firstOrNull()
             ),
-            iconSize = 46.dp,
+            iconSize = 48.dp,
             iconFocusedScale = AulamaFocusScale
         )
 
@@ -433,6 +467,17 @@ fun HomeScreen(viewModel: HomeViewModel) {
             onChangeSource = { sourceId ->
                 showSourceDialog = false
                 viewModel.changeSource(sourceId)
+            }
+        )
+    }
+
+    if (showAccountDialog) {
+        AccountDialog(
+            account = account,
+            onDismiss = { showAccountDialog = false },
+            onLogout = {
+                showAccountDialog = false
+                onLogout()
             }
         )
     }

@@ -11,6 +11,9 @@ import coil.disk.DiskCache
 import coil.ImageLoader
 import coil.ImageLoaderFactory
 import coil.memory.MemoryCache
+import com.jing.sakura.auth.AulamaAuthRepository
+import com.jing.sakura.auth.AuthViewModel
+import com.jing.sakura.auth.SecureAuthStorage
 import com.jing.sakura.detail.DetailPageViewModel
 import com.jing.sakura.extend.AndroidCookieJar
 import com.jing.sakura.history.HistoryViewModel
@@ -75,6 +78,9 @@ class SakuraApplication : Application(), ImageLoaderFactory {
                 }
                 .build()
         }
+        single(qualifier(KoinOkHttpClient.AULAMA)) { provideAulamaOkHttpClient() }
+        single { SecureAuthStorage(get()) }
+        single { AulamaAuthRepository(get(qualifier(KoinOkHttpClient.AULAMA)), get()) }
         single { WebPageRepository(get(qualifier = qualifier(KoinOkHttpClient.DATA))) }
     }
 
@@ -107,6 +113,7 @@ class SakuraApplication : Application(), ImageLoaderFactory {
         viewModel { holder -> DetailPageViewModel(holder.get(), get(), get(), holder.get()) }
         viewModel { holder -> VideoPlayerViewModel(holder.get(), get(), get()) }
         viewModelOf(::HomeViewModel)
+        viewModelOf(::AuthViewModel)
         viewModel { holder -> SearchViewModel(get(), holder.get()) }
         viewModel { holder -> TimelineViewModel(get(), holder.get()) }
         viewModelOf(::HistoryViewModel)
@@ -126,6 +133,24 @@ class SakuraApplication : Application(), ImageLoaderFactory {
                 }
             }.build()
     }
+
+    private fun provideAulamaOkHttpClient(): OkHttpClient = OkHttpClient.Builder()
+        .connectTimeout(5L, TimeUnit.SECONDS)
+        .readTimeout(15L, TimeUnit.SECONDS)
+        .followRedirects(false)
+        .followSslRedirects(false)
+        .addInterceptor { chain ->
+            val request = chain.request()
+            require(request.url.isHttps && request.url.host == "aulama.org") {
+                "Aulama auth client only accepts https://aulama.org"
+            }
+            chain.proceed(
+                request.newBuilder()
+                    .header("User-Agent", "Aulama-Anime-TV/${BuildConfig.VERSION_NAME}")
+                    .build()
+            )
+        }
+        .build()
 
     private fun basicOkhttpClient(): OkHttpClient.Builder {
         val trustManager = object : X509TrustManager {
@@ -181,6 +206,6 @@ class SakuraApplication : Application(), ImageLoaderFactory {
         .build()
 
     enum class KoinOkHttpClient {
-        DATA, MEDIA
+        DATA, MEDIA, AULAMA
     }
 }

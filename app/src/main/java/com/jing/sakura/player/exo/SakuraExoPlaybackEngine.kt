@@ -61,13 +61,7 @@ class SakuraExoPlaybackEngine(
                 override fun onPlaybackStateChanged(playbackState: Int) {
                     when (playbackState) {
                         Player.STATE_READY -> {
-                            if (!hasDispatchedFileLoaded) {
-                                hasDispatchedFileLoaded = true
-                                if (pendingStartPositionMs > 1_000L) {
-                                    seekTo(pendingStartPositionMs)
-                                }
-                                callback.onFileLoaded()
-                            }
+                            dispatchFileLoadedIfNeeded()
                             callback.onPlaybackStateChanged(isPlaying)
                         }
 
@@ -82,6 +76,10 @@ class SakuraExoPlaybackEngine(
 
                 override fun onIsPlayingChanged(isPlaying: Boolean) {
                     callback.onPlaybackStateChanged(isPlaying)
+                }
+
+                override fun onRenderedFirstFrame() {
+                    dispatchFileLoadedIfNeeded()
                 }
 
                 override fun onPlayerError(error: PlaybackException) {
@@ -163,6 +161,15 @@ class SakuraExoPlaybackEngine(
         player.clearMediaItems()
         playerView.player = null
         player.release()
+    }
+
+    private fun dispatchFileLoadedIfNeeded() {
+        if (hasDispatchedFileLoaded) return
+        hasDispatchedFileLoaded = true
+        if (pendingStartPositionMs > 1_000L) {
+            player.seekTo(pendingStartPositionMs)
+        }
+        callback.onFileLoaded()
     }
 
     private fun publishProgress() {

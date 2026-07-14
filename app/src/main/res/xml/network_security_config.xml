@@ -3,4 +3,10 @@
     <base-config
         cleartextTrafficPermitted="true"
         tools:ignore="InsecureBaseConfiguration" />
+    <domain-config cleartextTrafficPermitted="false">
+        <domain includeSubdomains="false">aulama.org</domain>
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </domain-config>
 </network-security-config>

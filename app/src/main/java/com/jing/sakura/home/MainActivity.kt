@@ -14,12 +14,16 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.lifecycleScope
 import androidx.tv.material3.ExperimentalTvMaterial3Api
 import androidx.tv.material3.MaterialTheme
 import com.jing.sakura.R
+import com.jing.sakura.auth.AuthUiState
+import com.jing.sakura.auth.AuthViewModel
+import com.jing.sakura.compose.screen.DeviceLoginScreen
 import com.jing.sakura.compose.screen.HomeScreen
 import com.jing.sakura.compose.theme.SakuraTheme
 import com.jing.sakura.update.TvUpdate
@@ -48,6 +52,7 @@ class MainActivity : ComponentActivity() {
         updateManager = TvUpdateManager(this)
         registerDownloadReceiver()
         val viewModel: HomeViewModel by viewModel()
+        val authViewModel: AuthViewModel by viewModel()
         setContent {
             SakuraTheme {
                 Box(
@@ -59,7 +64,17 @@ class MainActivity : ComponentActivity() {
                         androidx.tv.material3.LocalContentColor provides MaterialTheme.colorScheme.onSurface,
                         androidx.compose.material3.LocalContentColor provides MaterialTheme.colorScheme.onSurface
                     ) {
-                        HomeScreen(viewModel)
+                        when (val authState = authViewModel.state.collectAsState().value) {
+                            is AuthUiState.Authenticated -> HomeScreen(
+                                viewModel = viewModel,
+                                account = authState.account,
+                                onLogout = authViewModel::logout
+                            )
+                            else -> DeviceLoginScreen(
+                                state = authState,
+                                onRetry = authViewModel::retryLogin
+                            )
+                        }
                     }
                     availableUpdate.value?.let { update ->
                         TvUpdateDialog(

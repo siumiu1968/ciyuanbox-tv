@@ -453,6 +453,7 @@ class PlaybackActivity : FragmentActivity(), SakuraExoPlaybackEngine.Callback {
     override fun onFileLoaded() {
         hasLoadedCurrentVideo = true
         hideLoading()
+        binding.playerErrorText.isGone = true
         binding.playerTitleText.text = currentTitle
         showOverlay(focusPrimary = false)
     }
@@ -572,7 +573,7 @@ class PlaybackActivity : FragmentActivity(), SakuraExoPlaybackEngine.Callback {
     companion object {
         private const val OVERLAY_HIDE_DELAY_MS = 2600L
         private const val SEEK_SETTLE_DELAY_MS = 900L
-        private const val LOAD_TIMEOUT_MS = 6500L
+        private const val LOAD_TIMEOUT_MS = 20_000L
         private const val MAX_EPISODE_RETRY_COUNT = 1
         private const val PROGRESS_MAX = 1000
         private const val TAG_EPISODES = "player_episodes"

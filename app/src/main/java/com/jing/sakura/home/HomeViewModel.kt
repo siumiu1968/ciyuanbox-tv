@@ -5,6 +5,7 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.jing.sakura.SakuraApplication
+import com.jing.sakura.auth.AulamaAuthRepository
 import com.jing.sakura.data.AnimeData
 import com.jing.sakura.data.HomePageData
 import com.jing.sakura.data.NamedValue
@@ -17,13 +18,16 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
 class HomeViewModel(
-    private val repository: WebPageRepository
+    private val repository: WebPageRepository,
+    private val authRepository: AulamaAuthRepository
 ) : ViewModel() {
 
     private val _homePageData = MutableStateFlow<Resource<HomePageData>>(Resource.Loading)
+    private val _recommendations = MutableStateFlow<List<AnimeData>>(emptyList())
 
     private val _sp = SakuraApplication.context.getSharedPreferences("source", Context.MODE_PRIVATE)
 
@@ -42,6 +46,9 @@ class HomeViewModel(
     val homePageData: StateFlow<Resource<HomePageData>>
         get() = _homePageData
 
+    val recommendations: StateFlow<List<AnimeData>>
+        get() = _recommendations
+
     @Volatile
     var lastHomePageData: HomePageData? = null
         private set
@@ -50,6 +57,17 @@ class HomeViewModel(
 
     init {
         loadData(false)
+        viewModelScope.launch(Dispatchers.IO) {
+            authRepository.session.collectLatest { session ->
+                _recommendations.value = if (session == null) {
+                    emptyList()
+                } else {
+                    runCatching { authRepository.fetchRecommendations() }
+                        .onFailure { Log.e("recommendations", "載入個人化推薦失敗", it) }
+                        .getOrDefault(emptyList())
+                }
+            }
+        }
     }
 
     fun changeSource(newSourceId: String) {
@@ -103,9 +121,8 @@ class HomeViewModel(
         loadDataJob = sourceId to viewModelScope.launch(Dispatchers.IO) {
             try {
                 _homePageData.emit(Resource.Loading(silent = silent))
-                repository.fetchHomePage(currentSourceId).also {
-                    _homePageData.emit(Resource.Success(processHomePageData(it)))
-                }
+                val homeData = repository.fetchHomePage(currentSourceId)
+                _homePageData.emit(Resource.Success(processHomePageData(homeData)))
             } catch (ex: Exception) {
                 if (ex is CancellationException) {
                     throw ex

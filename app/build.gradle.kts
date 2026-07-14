@@ -15,8 +15,8 @@ android {
         applicationId = "com.codex.ciyuanbox.tv"
         minSdk = 21
         targetSdk = 34
-        versionCode = 1006
-        versionName = "2.5.0"
+        versionCode = 1008
+        versionName = "2.6.0"
 
     }
     packaging {
@@ -149,5 +149,7 @@ dependencies {
     implementation("com.github.houbb:opencc4j:1.7.2")
 
     implementation("androidx.webkit:webkit:1.9.0")
+
+    testImplementation("junit:junit:4.13.2")
 
 }
