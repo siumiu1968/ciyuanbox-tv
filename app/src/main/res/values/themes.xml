@@ -2,6 +2,18 @@
 
     <style name="Theme.Sakuraanimation" parent="@style/Theme.Leanback">
         <item name="detailsDescriptionTitleStyle">@style/CustomLbDetailsDescriptionTitleStyle</item>
+        <item name="android:windowBackground">@drawable/tv_launch_window</item>
+        <item name="android:windowDisablePreview">false</item>
+    </style>
+
+    <style name="Theme.SakuraPlayback" parent="@style/Theme.Leanback">
+        <item name="playbackProgressPrimaryColor">@color/aulama_playback_accent</item>
+        <item name="playbackProgressSecondaryColor">@color/aulama_playback_secondary</item>
+        <item name="playbackControlsIconHighlightColor">@color/aulama_playback_accent</item>
+        <item name="playbackControlsAutoHideTimeout">4000</item>
+        <item name="playbackControlsAutoHideTickleTimeout">4000</item>
+        <item name="android:fontFamily">sans</item>
+        <item name="android:windowBackground">@android:color/black</item>
     </style>
 
     <style name="CustomLbDetailsDescriptionTitleStyle" parent="Widget.Leanback.DetailsDescriptionTitleStyle">

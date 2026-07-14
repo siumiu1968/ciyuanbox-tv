@@ -1,7 +1,6 @@
 package com.jing.sakura.player
 
 import android.graphics.Color
-import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import android.view.View
@@ -9,7 +8,6 @@ import android.view.ViewGroup
 import android.view.WindowManager
 import androidx.annotation.OptIn
 import androidx.core.graphics.drawable.toDrawable
-import androidx.leanback.app.ProgressBarManager
 import androidx.leanback.app.VideoSupportFragment
 import androidx.leanback.app.VideoSupportFragmentGlueHost
 import androidx.leanback.widget.PlaybackControlsRow.PlayPauseAction
@@ -18,7 +16,8 @@ import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MimeTypes
-import androidx.media3.common.Player.Listener
+import androidx.media3.common.PlaybackException
+import androidx.media3.common.Player
 import androidx.media3.common.VideoSize
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.okhttp.OkHttpDataSource
@@ -27,10 +26,9 @@ import androidx.media3.exoplayer.SeekParameters
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
 import androidx.media3.ui.leanback.LeanbackPlayerAdapter
-import com.jing.sakura.SakuraApplication
 import com.jing.sakura.R
+import com.jing.sakura.SakuraApplication
 import com.jing.sakura.data.Resource
-import com.jing.sakura.extend.dpToPixels
 import com.jing.sakura.extend.secondsToMinuteAndSecondText
 import com.jing.sakura.extend.showLongToast
 import com.jing.sakura.extend.showShortToast
@@ -42,135 +40,77 @@ import org.koin.androidx.viewmodel.ext.android.activityViewModel
 import org.koin.core.parameter.parametersOf
 import org.koin.core.qualifier.qualifier
 
-
+@OptIn(UnstableApi::class)
 class AnimePlayerFragment : VideoSupportFragment() {
 
-    private val TAG = "AnimePlayerFragment"
-
     private val viewModel: VideoPlayerViewModel by activityViewModel {
-        val intentArg = requireActivity().intent.getSerializableExtra(
-            "video",
-        ) as NavigateToPlayerArg
-        parametersOf(intentArg)
+        @Suppress("DEPRECATION")
+        val arg = requireActivity().intent.getSerializableExtra("video") as NavigateToPlayerArg
+        parametersOf(arg)
     }
-    private var exoplayer: ExoPlayer? = null
-
-    private var glue: ProgressTransportControlGlue<LeanbackPlayerAdapter>? = null
-
-    private lateinit var mProgressBarManager: ProgressBarManager
 
     private val okHttpClient: OkHttpClient =
         get(qualifier = qualifier(SakuraApplication.KoinOkHttpClient.MEDIA))
 
-    private val playerListener = object : Listener {
+    private var player: ExoPlayer? = null
+    private var glue: ProgressTransportControlGlue<LeanbackPlayerAdapter>? = null
 
+    private val playerListener = object : Player.Listener {
         override fun onPlaybackStateChanged(playbackState: Int) {
-            Log.d(TAG, "playbackStateChanged: ${playbackStateName(playbackState)}")
-            if (playbackState == ExoPlayer.STATE_ENDED) {
-                viewModel.playNextEpisodeIfExists()
+            Log.d(TAG, "playbackState=${playbackStateName(playbackState)}")
+            when (playbackState) {
+                Player.STATE_BUFFERING -> progressBarManager.show()
+                Player.STATE_READY -> progressBarManager.hide()
+                Player.STATE_ENDED -> {
+                    progressBarManager.hide()
+                    viewModel.playNextEpisodeIfExists()
+                }
             }
         }
 
         override fun onIsPlayingChanged(isPlaying: Boolean) {
-            Log.d(TAG, "onIsPlayingChanged: $isPlaying")
-            if (isPlaying) {
-                viewModel.startSaveHistory()
-            } else {
-                viewModel.stopSaveHistory()
-            }
+            snapshotPlaybackPosition()
+            if (isPlaying) viewModel.startSaveHistory() else viewModel.stopSaveHistory()
         }
 
-        override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
-            Log.e(TAG, "onPlayerError: ${error.errorCodeName} ${error.message}", error)
+        override fun onRenderedFirstFrame() {
+            progressBarManager.hide()
+        }
+
+        override fun onPlayerError(error: PlaybackException) {
+            Log.e(TAG, "playerError=${error.errorCodeName}: ${error.message}", error)
+            progressBarManager.hide()
+            viewModel.stopSaveHistory()
+            glue?.subtitle = getString(R.string.player_retry_hint)
+            requireContext().showLongToast(
+                getString(R.string.player_load_error_template, error.errorCodeName)
+            )
         }
 
         override fun onVideoSizeChanged(videoSize: VideoSize) {
-            Log.d(TAG, "videoSizeChanged: ${videoSize.width} x ${videoSize.height}")
+            Log.d(TAG, "videoSize=${videoSize.width}x${videoSize.height}")
         }
-
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         requireActivity().window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-        // Create the MediaSession that will be used throughout the lifecycle of this Fragment.
     }
 
-    @OptIn(UnstableApi::class)
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
-        view.background = Color.BLACK.toDrawable()
-        mProgressBarManager = ProgressBarManager()
-        mProgressBarManager.setRootView(view as ViewGroup)
-        mProgressBarManager.enableProgressBar()
-        progressBarManager.initialDelay = 0L
         super.onViewCreated(view, savedInstanceState)
-        lifecycleScope.launch {
+        view.background = Color.BLACK.toDrawable()
+        progressBarManager.setRootView(view as ViewGroup)
+        progressBarManager.enableProgressBar()
+        progressBarManager.initialDelay = 0L
+
+        viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
-                viewModel.playerSubTitle.collectLatest {
-                    glue?.subtitle = it
+                launch {
+                    viewModel.playerSubTitle.collectLatest { glue?.subtitle = it }
                 }
-            }
-        }
-        lifecycleScope.launch {
-            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
-
-                viewModel.videoUrl.collectLatest { urlAndTime ->
-                    when (urlAndTime) {
-                        is Resource.Success -> {
-                            mProgressBarManager.hide()
-
-                            val okhttpDataSourceFactory =
-                                OkHttpDataSource.Factory { req -> okHttpClient.newCall(req) }
-                                    .apply {
-                                        setDefaultRequestProperties(urlAndTime.data.headers)
-                                    }
-                            val isM3u8 = urlAndTime.data.videoUrl.contains("m3u8")
-                            val mediaSource =
-                                DefaultMediaSourceFactory(okhttpDataSourceFactory).createMediaSource(
-                                    MediaItem.Builder().setUri(urlAndTime.data.videoUrl)
-                                        .apply {
-                                            if (isM3u8) {
-                                                setMimeType(MimeTypes.APPLICATION_M3U8)
-                                            }
-                                        }
-                                        .build()
-                                )
-                            exoplayer?.setMediaSource(mediaSource)
-                            if (urlAndTime.data.lastPlayPosition > 0) {
-                                // 距离结束小于10秒,当作播放结束
-                                if (urlAndTime.data.videoDuration > 0 && urlAndTime.data.videoDuration - urlAndTime.data.lastPlayPosition < 10_000) {
-                                    requireContext().showShortToast(getString(R.string.player_finished_restart))
-                                } else {
-                                    val seekTo = urlAndTime.data.lastPlayPosition
-                                    exoplayer?.seekTo(seekTo)
-                                    requireContext().showShortToast(
-                                        getString(
-                                            R.string.player_resume_template,
-                                            (seekTo / 1000).secondsToMinuteAndSecondText()
-                                        )
-                                    )
-                                }
-                            }
-                            exoplayer?.prepare()
-                            exoplayer?.play()
-                            glue?.primeOverlayAutoHide()
-                            viewModel.changePlayingEpisode(urlAndTime.data.episode)
-                        }
-
-                        is Resource.Loading -> {
-                            mProgressBarManager.show()
-                        }
-
-                        is Resource.Error -> {
-                            requireContext().showLongToast(
-                                getString(
-                                    R.string.player_load_error_template,
-                                    urlAndTime.message
-                                )
-                            )
-                            mProgressBarManager.hide()
-                        }
-                    }
+                launch {
+                    viewModel.videoUrl.collectLatest(::renderVideoState)
                 }
             }
         }
@@ -178,34 +118,78 @@ class AnimePlayerFragment : VideoSupportFragment() {
 
     override fun onStart() {
         super.onStart()
-        if (Build.VERSION.SDK_INT > 23) {
-            exoplayer = buildPlayer()
-        }
-    }
-
-    override fun onResume() {
-        super.onResume()
-        if (Build.VERSION.SDK_INT <= 23 && exoplayer == null) {
-            exoplayer = buildPlayer()
-        }
-    }
-
-    override fun onPause() {
-        super.onPause()
-        if (Build.VERSION.SDK_INT <= 23) {
-            destroyPlayer()
-        }
+        if (player == null) player = buildPlayer()
     }
 
     override fun onStop() {
+        snapshotPlaybackPosition()
+        viewModel.stopSaveHistory()
+        destroyPlayer()
         super.onStop()
-        if (Build.VERSION.SDK_INT > 23) {
-            destroyPlayer()
+    }
+
+    private fun renderVideoState(resource: Resource<EpisodeUrlAndHistory>) {
+        when (resource) {
+            is Resource.Loading -> {
+                progressBarManager.show()
+                glue?.subtitle = getString(R.string.player_loading_episode)
+            }
+            is Resource.Error -> {
+                progressBarManager.hide()
+                glue?.subtitle = getString(R.string.player_retry_hint)
+                requireContext().showLongToast(
+                    getString(R.string.player_load_error_template, resource.message)
+                )
+            }
+            is Resource.Success -> loadEpisode(resource.data)
         }
     }
 
+    private fun loadEpisode(payload: EpisodeUrlAndHistory) {
+        val localPlayer = player ?: return
+        progressBarManager.show()
 
-    @OptIn(UnstableApi::class)
+        val dataSourceFactory = OkHttpDataSource.Factory { request ->
+            okHttpClient.newCall(request)
+        }.apply {
+            setDefaultRequestProperties(payload.headers)
+        }
+        val mediaItem = MediaItem.Builder()
+            .setUri(payload.videoUrl)
+            .apply {
+                if (payload.videoUrl.contains("m3u8", ignoreCase = true)) {
+                    setMimeType(MimeTypes.APPLICATION_M3U8)
+                }
+            }
+            .build()
+        val mediaSource = DefaultMediaSourceFactory(dataSourceFactory).createMediaSource(mediaItem)
+
+        val startPositionMs = payload.lastPlayPosition.takeIf { position ->
+            position > 0L &&
+                (payload.videoDuration <= 0L || payload.videoDuration - position >= 10_000L)
+        } ?: 0L
+        if (payload.lastPlayPosition > 0L) {
+            if (startPositionMs == 0L) {
+                requireContext().showShortToast(getString(R.string.player_finished_restart))
+            } else {
+                requireContext().showShortToast(
+                    getString(
+                        R.string.player_resume_template,
+                        (startPositionMs / 1000L).secondsToMinuteAndSecondText()
+                    )
+                )
+            }
+        }
+
+        viewModel.changePlayingEpisode(payload.episode)
+        glue?.title = viewModel.anime.animeName
+        glue?.subtitle = payload.episode.episode
+        localPlayer.setMediaSource(mediaSource)
+        if (startPositionMs > 0L) localPlayer.seekTo(startPositionMs)
+        localPlayer.prepare()
+        localPlayer.playWhenReady = true
+    }
+
     private fun buildPlayer(): ExoPlayer {
         val trackSelector = DefaultTrackSelector(requireContext()).apply {
             setParameters(
@@ -217,41 +201,31 @@ class AnimePlayerFragment : VideoSupportFragment() {
         }
         return ExoPlayer.Builder(requireContext())
             .setTrackSelector(trackSelector)
-            .setSeekBackIncrementMs(10_000)
-            .setSeekForwardIncrementMs(10_000)
+            .setSeekBackIncrementMs(SEEK_INCREMENT_MS)
+            .setSeekForwardIncrementMs(SEEK_INCREMENT_MS)
             .build()
             .apply {
                 setSeekParameters(SeekParameters.CLOSEST_SYNC)
+                addListener(playerListener)
                 prepareGlue(this)
                 playWhenReady = true
-                addListener(playerListener)
             }
     }
 
-
-    private fun destroyPlayer() {
-        exoplayer?.let {
-            it.removeListener(playerListener)
-            // Pause the player to notify listeners before it is released.
-            it.pause()
-            it.release()
-        }
-        exoplayer = null
-    }
-
-    @OptIn(UnstableApi::class)
-    private fun prepareGlue(localExoplayer: ExoPlayer) {
+    private fun prepareGlue(localPlayer: ExoPlayer) {
         ProgressTransportControlGlue(
             context = requireContext(),
-            lifeCycleScope = lifecycleScope,
             activity = requireActivity(),
             impl = LeanbackPlayerAdapter(
                 requireContext(),
-                localExoplayer,
-                PLAYER_UPDATE_INTERVAL_MILLIS.toInt()
+                localPlayer,
+                PLAYER_UPDATE_INTERVAL_MILLIS
             ),
             onPlayPauseAction = { action ->
-                if (action.index == PlayPauseAction.INDEX_PLAY && viewModel.videoUrl.value is Resource.Error) {
+                if (
+                    action.index == PlayPauseAction.INDEX_PLAY &&
+                    viewModel.videoUrl.value is Resource.Error
+                ) {
                     viewModel.retryLoadEpisode()
                     true
                 } else {
@@ -260,52 +234,66 @@ class AnimePlayerFragment : VideoSupportFragment() {
             },
             updateProgress = {
                 viewModel.onPlayPositionChange(
-                    localExoplayer.currentPosition,
-                    localExoplayer.contentDuration
+                    localPlayer.currentPosition.coerceAtLeast(0L),
+                    localPlayer.contentDuration.coerceAtLeast(0L)
                 )
             },
-            chooseEpisode = this::openPlayListDialogAndChoose
+            chooseEpisode = ::openEpisodeChooser,
+            playPreviousEpisode = viewModel::playPreviousEpisodeIfExists,
+            playNextEpisode = viewModel::playNextEpisodeAdjacent
         ).apply {
             title = viewModel.anime.animeName
-            glue = this
-            host = VideoSupportFragmentGlueHost(this@AnimePlayerFragment)
-            isControlsOverlayAutoHideEnabled = true
-            // Enable seek manually since PlaybackTransportControlGlue.getSeekProvider() is null,
-            // so that PlayerAdapter.seekTo(long) will be called during user seeking.
+            subtitle = viewModel.playerSubTitle.value
             isSeekEnabled = true
-            primeOverlayAutoHide()
+            isControlsOverlayAutoHideEnabled = true
+            host = VideoSupportFragmentGlueHost(this@AnimePlayerFragment)
+            glue = this
         }
     }
 
-
-    companion object {
-        // Update the player UI fairly often. The frequency of updates affects several UI components
-        // such as the smoothness of the progress bar and time stamp labels updating. This value can
-        // be tweaked for better performance.
-        private const val PLAYER_UPDATE_INTERVAL_MILLIS = 250L
+    private fun snapshotPlaybackPosition() {
+        player?.let {
+            viewModel.onPlayPositionChange(
+                it.currentPosition.coerceAtLeast(0L),
+                it.contentDuration.coerceAtLeast(0L)
+            )
+        }
     }
 
-    private fun playbackStateName(playbackState: Int): String = when (playbackState) {
-        ExoPlayer.STATE_IDLE -> "IDLE"
-        ExoPlayer.STATE_BUFFERING -> "BUFFERING"
-        ExoPlayer.STATE_READY -> "READY"
-        ExoPlayer.STATE_ENDED -> "ENDED"
-        else -> "UNKNOWN($playbackState)"
+    private fun destroyPlayer() {
+        player?.let {
+            it.removeListener(playerListener)
+            it.pause()
+            it.release()
+        }
+        player = null
+        glue = null
     }
 
-
-    private fun openPlayListDialogAndChoose() {
-        val fragmentManager = requireActivity().supportFragmentManager
+    private fun openEpisodeChooser() {
         ChooseEpisodeDialog(
             dataList = viewModel.playList,
             defaultSelectIndex = viewModel.playIndex,
-            viewWidth = 60.dpToPixels(requireContext()).toInt(),
+            viewWidthDp = EPISODE_PANEL_WIDTH_DP,
             getText = { _, item -> item.episode }
         ) { index, _ ->
             viewModel.playEpisodeOfIndex(index)
-        }.apply {
-            showNow(fragmentManager, "")
-        }
+        }.showNow(parentFragmentManager, TAG_EPISODE_CHOOSER)
     }
 
+    private fun playbackStateName(playbackState: Int): String = when (playbackState) {
+        Player.STATE_IDLE -> "IDLE"
+        Player.STATE_BUFFERING -> "BUFFERING"
+        Player.STATE_READY -> "READY"
+        Player.STATE_ENDED -> "ENDED"
+        else -> "UNKNOWN($playbackState)"
+    }
+
+    companion object {
+        private const val TAG = "AnimePlayerFragment"
+        private const val TAG_EPISODE_CHOOSER = "episode_chooser"
+        private const val PLAYER_UPDATE_INTERVAL_MILLIS = 250
+        private const val SEEK_INCREMENT_MS = 10_000L
+        private const val EPISODE_PANEL_WIDTH_DP = 420
+    }
 }

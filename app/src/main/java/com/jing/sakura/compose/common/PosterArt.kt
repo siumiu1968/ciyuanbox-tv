@@ -16,7 +16,7 @@ fun rememberPosterImageRequest(
     return remember(imageUrl, widthPx, heightPx) {
         ImageRequest.Builder(context)
             .data(imageUrl)
-            .memoryCacheKey(imageUrl)
+            .memoryCacheKey("$imageUrl@${widthPx}x$heightPx")
             .diskCacheKey(imageUrl)
             .memoryCachePolicy(CachePolicy.ENABLED)
             .diskCachePolicy(CachePolicy.ENABLED)

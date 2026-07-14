@@ -3,6 +3,8 @@ package com.jing.sakura.player
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.jing.sakura.auth.AulamaAuthRepository
+import com.jing.sakura.auth.PlaybackHistoryPayload
 import com.jing.sakura.data.AnimePlayListEpisode
 import com.jing.sakura.data.Resource
 import com.jing.sakura.repo.WebPageRepository
@@ -16,13 +18,15 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
+import java.util.UUID
 import java.util.regex.Pattern
 
 
 class VideoPlayerViewModel(
     val anime: NavigateToPlayerArg,
     private val repository: WebPageRepository,
-    private val videoHistoryDao: VideoHistoryDao
+    private val videoHistoryDao: VideoHistoryDao,
+    private val authRepository: AulamaAuthRepository
 ) : ViewModel() {
 
     private val TAG = VideoPlayerViewModel::class.java.simpleName
@@ -30,6 +34,10 @@ class VideoPlayerViewModel(
     private var _playList = emptyList<AnimePlayListEpisode>()
 
     private var _saveHistoryJob: Job? = null
+
+    private var lastRemoteSyncAt = 0L
+
+    private var playSessionId = UUID.randomUUID().toString()
 
     @Volatile
     private var currentPlayPosition: Long = 0L
@@ -73,6 +81,10 @@ class VideoPlayerViewModel(
     }
 
     fun changePlayingEpisode(episode: AnimePlayListEpisode) {
+        if (playingEpisode?.episodeId != episode.episodeId) {
+            playSessionId = UUID.randomUUID().toString()
+            lastRemoteSyncAt = 0L
+        }
         this.playingEpisode = episode
     }
 
@@ -153,6 +165,30 @@ class VideoPlayerViewModel(
                         sourceId = anime.sourceId
                     )
                     videoHistoryDao.saveHistory(history)
+                    val now = System.currentTimeMillis()
+                    if (now - lastRemoteSyncAt >= REMOTE_SYNC_INTERVAL_MS) {
+                        val duration = videoDuration.coerceAtLeast(0L)
+                        runCatching {
+                            authRepository.syncPlaybackHistory(
+                                PlaybackHistoryPayload(
+                                    animeId = anime.animeId,
+                                    animeTitle = anime.animeName,
+                                    poster = anime.coverUrl,
+                                    episodeId = ep.episodeId,
+                                    episodeLabel = ep.episode,
+                                    episodeIndex = _playIndex.value.coerceAtLeast(0),
+                                    episodeCount = _playList.size.coerceAtLeast(1),
+                                    currentTimeSeconds = currentPlayPosition.coerceAtLeast(0L) / 1000.0,
+                                    durationSeconds = duration / 1000.0,
+                                    completed = duration > 0L &&
+                                        currentPlayPosition >= (duration - 15_000L).coerceAtLeast(0L),
+                                    sourceTypeId = anime.sourceId,
+                                    playSessionId = playSessionId
+                                )
+                            )
+                        }
+                        lastRemoteSyncAt = now
+                    }
                     delay(5000L)
                 } ?: delay(2000L)
             }
@@ -234,5 +270,9 @@ class VideoPlayerViewModel(
 
     fun retryLoadEpisode() {
         fetchVideoUrl(playList[_playIndex.value])
+    }
+
+    companion object {
+        private const val REMOTE_SYNC_INTERVAL_MS = 15_000L
     }
 }

@@ -20,7 +20,7 @@ import com.jing.sakura.extend.getColorWithAlpha
 class ChooseEpisodeDialog<T>(
     private val dataList: List<T>,
     private val defaultSelectIndex: Int,
-    private val viewWidth: Int,
+    private val viewWidthDp: Int,
     private val getText: (position: Int, item: T) -> String,
     private val onChoose: (position: Int, item: T) -> Unit
 ) : DialogFragment() {
@@ -33,7 +33,7 @@ class ChooseEpisodeDialog<T>(
         super.onStart()
         dialog?.window?.attributes?.run {
             height = WindowManager.LayoutParams.MATCH_PARENT
-            width = viewWidth.dpToPixels(requireContext()).toInt()
+            width = viewWidthDp.dpToPixels(requireContext()).toInt()
             gravity = Gravity.END
             dialog!!.window!!.attributes = this
         }

@@ -8,5 +8,6 @@ data class AnimeData(
     val imageUrl: String = "",
     val description: String = "",
     val tags: String = "",
-    val sourceId:String
+    val sourceId:String,
+    val year: String = ""
 )

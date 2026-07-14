@@ -2,15 +2,21 @@ package com.jing.sakura.auth
 
 import android.os.Build
 import com.google.gson.JsonObject
+import com.google.gson.JsonArray
 import com.jing.sakura.BuildConfig
 import com.jing.sakura.data.AnimeData
 import com.jing.sakura.extend.executeWithCoroutine
+import com.jing.sakura.remote.RemoteCommandAckStatus
+import com.jing.sakura.remote.RemotePlaybackCommand
+import com.jing.sakura.remote.RemotePlaybackCommandParser
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
+import okhttp3.HttpUrl.Companion.toHttpUrl
+import java.util.Calendar
 
 class AulamaAuthRepository(
     private val client: OkHttpClient,
@@ -77,15 +83,143 @@ class AulamaAuthRepository(
     }.getOrDefault(AccountValidationResult.Unavailable)
 
     suspend fun fetchRecommendations(): List<AnimeData> {
-        val session = _session.value ?: return emptyList()
-        val request = authenticatedRequest("$API_BASE/home", session).get().build()
+        return fetchTvHome().recommendations
+    }
+
+    suspend fun fetchTvHome(): TvHomePayload {
+        val body = authenticatedBody("/home") ?: return TvHomePayload()
+        val weekday = Calendar.getInstance().run {
+            val day = get(Calendar.DAY_OF_WEEK)
+            if (day == Calendar.SUNDAY) 7 else day - 1
+        }
+        return TvLibraryParser.parseHome(body, weekday)
+    }
+
+    suspend fun fetchTvLibrary(): TvLibraryPayload {
+        val favorites = fetchFavorites()
+        val historyItems = authenticatedBody("/history")
+            ?.let(TvLibraryParser::parseHistoryItems)
+            .orEmpty()
+        return TvLibraryPayload(
+            continueWatching = historyItems.map(TvHistoryItem::anime),
+            favorites = favorites,
+            historyItems = historyItems
+        )
+    }
+
+    suspend fun fetchFavorites(): List<AnimeData> =
+        authenticatedBody("/favorites")
+            ?.let(TvLibraryParser::parseFavorites)
+            .orEmpty()
+
+    suspend fun saveFavorite(payload: FavoritePayload): Boolean {
+        val session = _session.value ?: return false
+        val body = JsonObject().apply {
+            addProperty("id", payload.id)
+            addProperty("title", payload.title)
+            addProperty("subtitle", payload.subtitle)
+            addProperty("poster", payload.poster)
+            add("tags", JsonArray().apply { payload.tags.forEach(::add) })
+            addProperty("year", payload.year)
+            addProperty("summary", payload.summary)
+            addProperty("sourceTypeId", payload.sourceTypeId)
+            addProperty("hits", payload.hits)
+            addProperty("providerRating", payload.providerRating)
+            payload.addedAt.takeIf(String::isNotBlank)?.let { addProperty("addedAt", it) }
+            payload.updatedAt.takeIf(String::isNotBlank)?.let { addProperty("updatedAt", it) }
+        }.toString().toRequestBody(JSON_MEDIA_TYPE)
+        val request = authenticatedRequest("$API_BASE/favorites", session).post(body).build()
+        return executeAuthenticatedMutation(request)
+    }
+
+    suspend fun deleteFavorite(animeId: String): Boolean {
+        val session = _session.value ?: return false
+        val url = API_BASE.toHttpUrl().newBuilder()
+            .addPathSegment("favorites")
+            .addPathSegment(animeId)
+            .build()
+        val request = authenticatedRequest(url.toString(), session).delete().build()
+        return executeAuthenticatedMutation(request)
+    }
+
+    suspend fun syncPlaybackHistory(payload: PlaybackHistoryPayload): Boolean {
+        val session = _session.value ?: return false
+        val body = JsonObject().apply {
+            addProperty("animeId", payload.animeId)
+            addProperty("animeTitle", payload.animeTitle)
+            addProperty("poster", payload.poster)
+            addProperty("episodeId", payload.episodeId)
+            addProperty("episodeLabel", payload.episodeLabel)
+            addProperty("episodeIndex", payload.episodeIndex)
+            addProperty("episodeCount", payload.episodeCount)
+            addProperty("currentTime", payload.currentTimeSeconds)
+            addProperty("duration", payload.durationSeconds)
+            addProperty("completed", payload.completed)
+            addProperty("sourceTypeId", payload.sourceTypeId)
+            addProperty("playSessionId", payload.playSessionId)
+        }.toString().toRequestBody(JSON_MEDIA_TYPE)
+        val request = authenticatedRequest("$API_BASE/history", session).post(body).build()
         return client.executeWithCoroutine(request).use { response ->
             if (response.code == 401 || response.code == 403) {
                 clearSession()
-                return@use emptyList()
+                return@use false
             }
-            if (!response.isSuccessful) throw IllegalStateException("推薦請求失敗（${response.code}）")
-            RecommendationParser.parse(response.body?.string().orEmpty())
+            response.isSuccessful
+        }
+    }
+
+    suspend fun sendRemoteHeartbeat(): Boolean {
+        val session = _session.value ?: return false
+        val capabilities = com.google.gson.JsonArray().apply {
+            add("remote_playback")
+            add("auto_next")
+        }
+        val body = JsonObject().apply {
+            add("capabilities", capabilities)
+        }.toString().toRequestBody(JSON_MEDIA_TYPE)
+        val request = authenticatedRequest("$API_BASE/device/heartbeat", session).post(body).build()
+        return client.executeWithCoroutine(request).use { response ->
+            if (response.code == 401 || response.code == 403) {
+                clearSession()
+                return@use false
+            }
+            response.isSuccessful
+        }
+    }
+
+    suspend fun fetchNextRemoteCommand(): RemotePlaybackCommand? {
+        val session = _session.value ?: return null
+        val request = authenticatedRequest("$API_BASE/device/commands/next", session).get().build()
+        return client.executeWithCoroutine(request).use { response ->
+            if (response.code == 401 || response.code == 403) {
+                clearSession()
+                return@use null
+            }
+            if (!response.isSuccessful) {
+                throw IllegalStateException("遙控指令請求失敗（${response.code}）")
+            }
+            RemotePlaybackCommandParser.parse(response.body?.string().orEmpty())
+        }
+    }
+
+    suspend fun acknowledgeRemoteCommand(
+        commandId: String,
+        status: RemoteCommandAckStatus
+    ): Boolean {
+        val session = _session.value ?: return false
+        val body = JsonObject().apply {
+            addProperty("status", status.apiValue)
+        }.toString().toRequestBody(JSON_MEDIA_TYPE)
+        val request = authenticatedRequest(
+            "$API_BASE/device/commands/$commandId/ack",
+            session
+        ).post(body).build()
+        return client.executeWithCoroutine(request).use { response ->
+            if (response.code == 401 || response.code == 403) {
+                clearSession()
+                return@use false
+            }
+            response.isSuccessful || response.code == 409
         }
     }
 
@@ -111,6 +245,30 @@ class AulamaAuthRepository(
             .url(url)
             .header("Authorization", "${session.tokenType} ${session.accessToken}")
             .header("Accept", "application/json")
+
+    private suspend fun authenticatedBody(path: String): String? {
+        val session = _session.value ?: return null
+        val request = authenticatedRequest("$API_BASE$path", session).get().build()
+        return client.executeWithCoroutine(request).use { response ->
+            if (response.code == 401 || response.code == 403) {
+                clearSession()
+                return@use null
+            }
+            if (!response.isSuccessful) {
+                throw IllegalStateException("同步請求失敗（${response.code}）")
+            }
+            response.body?.string().orEmpty()
+        }
+    }
+
+    private suspend fun executeAuthenticatedMutation(request: Request): Boolean =
+        client.executeWithCoroutine(request).use { response ->
+            if (response.code == 401 || response.code == 403) {
+                clearSession()
+                return@use false
+            }
+            response.isSuccessful
+        }
 
     private suspend fun <T> execute(request: Request, parser: (Int, String, String?) -> T): T =
         client.executeWithCoroutine(request).use { response ->

@@ -1,16 +1,26 @@
 package com.jing.sakura.compose.theme
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.graphics.Color
 import androidx.tv.material3.ExperimentalTvMaterial3Api
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.darkColorScheme
 import com.jing.sakura.compose.common.AulamaTvColors
+import com.jing.sakura.compose.common.LocalTvLanguage
+import com.jing.sakura.compose.common.TvLanguagePreferences
 
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
 fun SakuraTheme(content: @Composable () -> Unit) {
+    val context = LocalContext.current
+    val languagePreferences = remember(context) { TvLanguagePreferences.get(context) }
+    val language by languagePreferences.language.collectAsState()
     val tvDarkColors = darkColorScheme(
         primary = AulamaTvColors.Cyan,
         onPrimary = Color(0xFF041013),
@@ -73,10 +83,12 @@ fun SakuraTheme(content: @Composable () -> Unit) {
         outlineVariant = tvDarkColors.borderVariant,
         scrim = tvDarkColors.scrim
     )
-    MaterialTheme(colorScheme = tvDarkColors) {
-        androidx.compose.material3.MaterialTheme(
-            colorScheme = material3ThemeColors,
-            content = content
-        )
+    CompositionLocalProvider(LocalTvLanguage provides language) {
+        MaterialTheme(colorScheme = tvDarkColors) {
+            androidx.compose.material3.MaterialTheme(
+                colorScheme = material3ThemeColors,
+                content = content
+            )
+        }
     }
 }

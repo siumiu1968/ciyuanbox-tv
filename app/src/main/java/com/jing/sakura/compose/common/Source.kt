@@ -11,6 +11,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -31,8 +33,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import androidx.tv.foundation.lazy.list.TvLazyColumn
-import androidx.tv.foundation.lazy.list.rememberTvLazyListState
 import androidx.tv.material3.ExperimentalTvMaterial3Api
 import androidx.tv.material3.MaterialTheme
 import com.jing.sakura.R
@@ -55,7 +55,7 @@ fun ChangeSourceDialog(
         properties = DialogProperties(usePlatformDefaultWidth = false)
     ) {
         val listState =
-            rememberTvLazyListState(initialFirstVisibleItemIndex = defaultIndex)
+            rememberLazyListState(initialFirstVisibleItemIndex = defaultIndex)
         val focusRequester = remember {
             FocusRequester()
         }
@@ -74,7 +74,7 @@ fun ChangeSourceDialog(
                 color = AulamaTvColors.TextPrimary
             )
             Spacer(modifier = Modifier.height(10.dp))
-            TvLazyColumn(state = listState, content = {
+            LazyColumn(state = listState, content = {
                 items(count = allSources.size) { sourceIndex ->
                     val source = allSources[sourceIndex]
                     val modifier = Modifier.run {

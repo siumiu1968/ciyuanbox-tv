@@ -110,8 +110,8 @@ class SakuraApplication : Application(), ImageLoaderFactory {
     }
 
     private fun viewModelModule() = module {
-        viewModel { holder -> DetailPageViewModel(holder.get(), get(), get(), holder.get()) }
-        viewModel { holder -> VideoPlayerViewModel(holder.get(), get(), get()) }
+        viewModel { holder -> DetailPageViewModel(holder.get(), get(), get(), get(), holder.get()) }
+        viewModel { holder -> VideoPlayerViewModel(holder.get(), get(), get(), get()) }
         viewModelOf(::HomeViewModel)
         viewModelOf(::AuthViewModel)
         viewModel { holder -> SearchViewModel(get(), holder.get()) }

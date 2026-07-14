@@ -22,6 +22,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.rounded.Mic
@@ -50,9 +52,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.paging.LoadState
 import androidx.paging.compose.collectAsLazyPagingItems
-import androidx.tv.foundation.ExperimentalTvFoundationApi
-import androidx.tv.foundation.lazy.list.TvLazyColumn
-import androidx.tv.foundation.lazy.list.rememberTvLazyListState
 import androidx.tv.material3.Border
 import androidx.tv.material3.ButtonScale
 import androidx.tv.material3.ClickableSurfaceDefaults
@@ -319,7 +318,6 @@ fun InputKeywordRow(onSearch: (String) -> Unit) {
     }
 }
 
-@OptIn(ExperimentalTvFoundationApi::class)
 @Composable
 fun SearchHistoryColumn(
     viewModel: SearchViewModel,
@@ -334,9 +332,9 @@ fun SearchHistoryColumn(
     }
     val coroutineScope = rememberCoroutineScope()
 
-    val listState = rememberTvLazyListState()
+    val listState = rememberLazyListState()
     FocusGroup {
-        TvLazyColumn(
+        LazyColumn(
             state = listState, content = {
                 items(pagingItems.itemCount, key = { pagingItems[it]?.keyword ?: it }) { kwIndex ->
                     val history = pagingItems[kwIndex] ?: return@items

@@ -4,7 +4,64 @@ import kotlin.math.ceil
 
 data class AulamaAccount(
     val name: String,
-    val role: String
+    val role: String,
+    val email: String = "",
+    val photoUrl: String = ""
+)
+
+data class TvHomePayload(
+    val recommendations: List<com.jing.sakura.data.AnimeData> = emptyList(),
+    val todayUpdates: List<com.jing.sakura.data.AnimeData> = emptyList(),
+    val theaterItems: List<com.jing.sakura.data.AnimeData> = emptyList()
+)
+
+data class TvLibraryPayload(
+    val continueWatching: List<com.jing.sakura.data.AnimeData> = emptyList(),
+    val favorites: List<com.jing.sakura.data.AnimeData> = emptyList(),
+    val historyItems: List<TvHistoryItem> = emptyList()
+)
+
+data class TvHistoryItem(
+    val anime: com.jing.sakura.data.AnimeData,
+    val episodeId: String = "",
+    val episodeLabel: String = "",
+    val episodeIndex: Int = 0,
+    val episodeCount: Int = 0,
+    val currentTimeSeconds: Double = 0.0,
+    val durationSeconds: Double = 0.0,
+    val completed: Boolean = false,
+    val sourceTypeId: String = "",
+    val updatedAt: String = ""
+)
+
+data class PlaybackHistoryPayload(
+    val animeId: String,
+    val animeTitle: String,
+    val poster: String,
+    val episodeId: String,
+    val episodeLabel: String,
+    val episodeIndex: Int,
+    val episodeCount: Int,
+    val currentTimeSeconds: Double,
+    val durationSeconds: Double,
+    val completed: Boolean,
+    val sourceTypeId: String,
+    val playSessionId: String
+)
+
+data class FavoritePayload(
+    val id: String,
+    val title: String,
+    val subtitle: String = "",
+    val poster: String = "",
+    val tags: List<String> = emptyList(),
+    val year: String = "",
+    val summary: String = "",
+    val sourceTypeId: String = "",
+    val hits: Long = 0L,
+    val providerRating: Double = 0.0,
+    val addedAt: String = "",
+    val updatedAt: String = ""
 )
 
 data class AuthSession(

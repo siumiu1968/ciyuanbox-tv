@@ -15,8 +15,8 @@ android {
         applicationId = "com.codex.ciyuanbox.tv"
         minSdk = 21
         targetSdk = 34
-        versionCode = 1008
-        versionName = "2.6.0"
+        versionCode = 1009
+        versionName = "2.7.0"
 
     }
     packaging {
@@ -75,7 +75,8 @@ android {
 dependencies {
 
     val roomVersion = "2.6.1"
-    val composeTvVersion = "1.0.0-alpha10"
+    val composeTvMaterialVersion = "1.0.1"
+    val media3Version = "1.4.1"
 
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
@@ -90,7 +91,7 @@ dependencies {
 
     implementation("androidx.activity:activity-compose:1.8.2")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.6.2")
-    implementation(platform("androidx.compose:compose-bom:2023.10.01"))
+    implementation(platform("androidx.compose:compose-bom:2024.09.03"))
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-graphics")
     implementation("androidx.compose.ui:ui-tooling-preview")
@@ -103,8 +104,7 @@ dependencies {
     implementation("androidx.paging:paging-compose:3.3.0-alpha02")
 
     // compose tv
-    implementation("androidx.tv:tv-foundation:$composeTvVersion")
-    implementation("androidx.tv:tv-material:$composeTvVersion")
+    implementation("androidx.tv:tv-material:$composeTvMaterialVersion")
 
     // room
     implementation("androidx.room:room-runtime:$roomVersion")
@@ -115,11 +115,11 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
     implementation("androidx.constraintlayout:constraintlayout:2.1.4")
 
-    implementation("androidx.media3:media3-exoplayer-hls:1.2.0")
-    implementation("androidx.media3:media3-exoplayer:1.2.0")
-    implementation("androidx.media3:media3-ui-leanback:1.2.0")
-    implementation("androidx.media3:media3-ui:1.2.0")
-    implementation("androidx.media3:media3-datasource-okhttp:1.2.0")
+    implementation("androidx.media3:media3-exoplayer-hls:$media3Version")
+    implementation("androidx.media3:media3-exoplayer:$media3Version")
+    implementation("androidx.media3:media3-ui-leanback:$media3Version")
+    implementation("androidx.media3:media3-ui:$media3Version")
+    implementation("androidx.media3:media3-datasource-okhttp:$media3Version")
     implementation(files("libs/mpv-android-lib-v0.1.10.aar"))
 
 

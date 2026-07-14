@@ -2,7 +2,6 @@ package com.jing.sakura.repo
 
 import android.util.Base64
 import com.google.gson.JsonArray
-import com.google.gson.JsonElement
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
 import com.jing.sakura.data.AnimeData
@@ -17,9 +16,11 @@ import com.jing.sakura.data.UpdateTimeLine
 import com.jing.sakura.extend.TraditionalChinese
 import com.jing.sakura.extend.getDocument
 import com.jing.sakura.extend.getHtml
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.withTimeoutOrNull
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.OkHttpClient
 import java.util.Calendar
@@ -29,7 +30,6 @@ import org.jsoup.nodes.Element
 class CycaniSource(private val okHttpClient: OkHttpClient) : AnimationSource {
 
     private var navCache: List<NavItem>? = null
-    private val translationCache = linkedMapOf<String, String>()
 
     override val sourceId: String
         get() = SOURCE_ID
@@ -77,15 +77,25 @@ class CycaniSource(private val okHttpClient: OkHttpClient) : AnimationSource {
         return HomePageData(sourceId = sourceId, seriesList = homeGroups)
     }
 
-    override suspend fun fetchDetailPage(animeId: String): AnimeDetailPageData {
+    override suspend fun fetchDetailPage(animeId: String): AnimeDetailPageData = coroutineScope {
+        val cachedSynopsis = async {
+            try {
+                withTimeoutOrNull(CACHED_SYNOPSIS_TIMEOUT_MS) {
+                    fetchCachedSynopsis(animeId)
+                }.orEmpty()
+            } catch (error: CancellationException) {
+                throw error
+            } catch (_: Exception) {
+                ""
+            }
+        }
         val detail = apiGetDataObject("$API_BASE_URL/video/info/$animeId")
         val title = localizeText(detail.string("vod_name")).ifBlank {
             throw RuntimeException(trad("未找到番剧标题"))
         }
-        val description = localizeText(
-            detail.string("vod_content").ifBlank { detail.string("vod_blurb") }
-                .let { Jsoup.parse(it).text() }
-        )
+        val originalDescription = detail.string("vod_content")
+            .ifBlank { detail.string("vod_blurb") }
+            .let { Jsoup.parse(it).text() }
         val imageUrl = detail.string("vod_pic").ifBlank {
             throw RuntimeException(trad("未找到番剧封面"))
         }
@@ -152,8 +162,9 @@ class CycaniSource(private val okHttpClient: OkHttpClient) : AnimationSource {
             addInfo("編劇", localizeText(detail.string("vod_writer")))
             detail.string("vod_score").takeIf { it.isNotBlank() }?.let { add("評分：${trad(it)}") }
         }
+        val description = cachedSynopsis.await().ifBlank { localizeText(originalDescription) }
 
-        return AnimeDetailPageData(
+        AnimeDetailPageData(
             animeId = animeId,
             animeName = title,
             description = description,
@@ -386,7 +397,8 @@ class CycaniSource(private val okHttpClient: OkHttpClient) : AnimationSource {
             imageUrl = item.string("pic").ifBlank { item.string("vod_pic") },
             description = trad(item.string("blurb").ifBlank { item.string("vod_content") }),
             tags = trad(item.string("class").ifBlank { item.string("vod_class") }),
-            sourceId = sourceId
+            sourceId = sourceId,
+            year = trad(item.string("year").ifBlank { item.string("vod_year") })
         )
     }
 
@@ -542,54 +554,24 @@ class CycaniSource(private val okHttpClient: OkHttpClient) : AnimationSource {
         )
     }
 
-    private suspend fun localizeText(text: String): String {
-        val normalized = text.trim()
-        if (normalized.isBlank()) return ""
-        translationCache[normalized]?.let { return it }
-
-        val localized = if (looksJapanese(normalized)) {
-            runCatching {
-                val translateUrl = "https://translate.googleapis.com/translate_a/single"
-                    .toHttpUrl()
-                    .newBuilder()
-                    .addQueryParameter("client", "gtx")
-                    .addQueryParameter("sl", "ja")
-                    .addQueryParameter("tl", "zh-TW")
-                    .addQueryParameter("dt", "t")
-                    .addQueryParameter("q", normalized)
-                    .build()
-                    .toString()
-                val raw = okHttpClient.getHtml(translateUrl) {
-                    header("User-Agent", DESKTOP_USER_AGENT)
-                    header("Accept-Language", "zh-TW,zh;q=0.9")
-                    header("Accept", "application/json,text/plain,*/*")
-                }
-                val translated = JsonParser.parseString(raw)
-                    .asJsonArray
-                    .get(0)
-                    .asJsonArray
-                    .mapNotNull { segment ->
-                        val value = segment.asJsonArray.getOrNull(0)
-                        if (value == null || value.isJsonNull) null else value.asString
-                    }
-                    .joinToString("")
-                trad(translated.ifBlank { normalized })
-            }.getOrElse { trad(normalized) }
-        } else {
-            trad(normalized)
-        }
-
-        if (translationCache.size > 200) {
-            translationCache.remove(translationCache.entries.first().key)
-        }
-        translationCache[normalized] = localized
-        return localized
+    private suspend fun fetchCachedSynopsis(animeId: String): String {
+        val url = AULAMA_API_BASE_URL.toHttpUrl()
+            .newBuilder()
+            .addPathSegment("synopsis")
+            .addPathSegment(animeId)
+            .build()
+            .toString()
+        val root = JsonParser.parseString(
+            okHttpClient.getHtml(url) {
+                header("User-Agent", DESKTOP_USER_AGENT)
+                header("Accept-Language", "zh-TW,zh;q=0.9")
+                header("Accept", "application/json")
+            }
+        ).asJsonObject
+        return if (root.boolean("ok")) root.string("summaryZhHant") else ""
     }
 
-    private fun looksJapanese(text: String): Boolean =
-        text.any { ch ->
-            ch in '\u3040'..'\u30ff' || ch in '\u31f0'..'\u31ff'
-        }
+    private fun localizeText(text: String): String = trad(text.trim())
 
     private fun String.normalizePlayLineName(): String {
         val value = trim()
@@ -625,14 +607,13 @@ class CycaniSource(private val okHttpClient: OkHttpClient) : AnimationSource {
     companion object {
         const val SOURCE_ID = "cycani"
         private const val API_BASE_URL = "https://pc.cycback.org"
+        private const val AULAMA_API_BASE_URL = "https://aulama.org/anime/api"
         private const val WEB_BASE_URL = "https://www.cycani.org/"
+        private const val CACHED_SYNOPSIS_TIMEOUT_MS = 800L
         private const val PAYLOAD_PREFIX = "cycapi:"
         private const val DESKTOP_USER_AGENT =
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) cyc-desktop/1.0.8 Chrome/128.0.6613.36 Electron/32.0.1 Safari/537.36"
     }
 
     private fun trad(text: String): String = TraditionalChinese.convert(text)
-
-    private fun JsonArray.getOrNull(index: Int): JsonElement? =
-        if (index in 0 until size()) get(index) else null
 }

@@ -11,38 +11,55 @@ object RecommendationParser {
     fun parse(body: String): List<AnimeData> {
         val root = JsonParser.parseString(body).asJsonObject
         val recommendations = root.getAsJsonArray("recommendations") ?: return emptyList()
-        return recommendations.mapNotNull { element ->
-            val item = element.takeIf(JsonElement::isJsonObject)?.asJsonObject ?: return@mapNotNull null
-            val id = item.string("id").ifBlank { item.string("vod_id") }
-            val title = item.string("title").ifBlank {
-                item.string("name").ifBlank { item.string("vod_name") }
-            }
-            if (id.isBlank() || title.isBlank()) return@mapNotNull null
-            val currentEpisode = item.string("currentEpisode").ifBlank {
-                item.string("status").ifBlank {
-                    item.string("remarks").ifBlank { item.string("vod_remarks") }
-                }
-            }
-            val imageUrl = normalizePoster(item.string("poster").ifBlank {
-                item.string("pic").ifBlank { item.string("vod_pic") }
-            })
-            val description = item.string("summary").ifBlank {
-                item.string("blurb").ifBlank { item.string("vod_content") }
-            }
-            AnimeData(
-                id = id,
-                url = "$CYCANI_API_BASE/video/info/$id",
-                title = title,
-                currentEpisode = currentEpisode,
-                imageUrl = imageUrl,
-                description = description,
-                tags = item.tags(),
-                sourceId = CycaniSource.SOURCE_ID
-            )
-        }.distinctBy(AnimeData::id)
+        return parseItems(recommendations)
     }
 
-    private fun JsonObject.tags(): String {
+    internal fun parseItems(items: Iterable<JsonElement>): List<AnimeData> =
+        items.mapNotNull { element ->
+            val item = element.takeIf(JsonElement::isJsonObject)?.asJsonObject ?: return@mapNotNull null
+            mapItem(item)
+        }.distinctBy(AnimeData::id)
+
+    internal fun mapItem(
+        item: JsonObject,
+        idKeys: List<String> = listOf("id", "animeId", "vod_id"),
+        titleKeys: List<String> = listOf("title", "animeTitle", "name", "vod_name"),
+        episodeKeys: List<String> = listOf(
+            "currentEpisode", "episodeLabel", "subtitle", "status", "remarks", "vod_remarks"
+        )
+    ): AnimeData? {
+        val id = idKeys.firstNotNullOfOrNull { item.string(it).takeIf(String::isNotBlank) }.orEmpty()
+        val title = titleKeys.firstNotNullOfOrNull { item.string(it).takeIf(String::isNotBlank) }.orEmpty()
+        if (id.isBlank() || title.isBlank()) return null
+        val currentEpisode = episodeKeys
+            .firstNotNullOfOrNull { item.string(it).takeIf(String::isNotBlank) }
+            .orEmpty()
+        val imageUrl = normalizePoster(
+            listOf("poster", "pic", "vod_pic")
+                .firstNotNullOfOrNull { item.string(it).takeIf(String::isNotBlank) }
+                .orEmpty()
+        )
+        val description = listOf(
+            "summary", "description", "synopsis", "blurb", "vod_blurb", "vod_content", "content"
+        )
+            .firstNotNullOfOrNull { item.string(it).takeIf(String::isNotBlank) }
+            .orEmpty()
+        return AnimeData(
+            id = id,
+            url = "$CYCANI_API_BASE/video/info/$id",
+            title = title,
+            currentEpisode = currentEpisode,
+            imageUrl = imageUrl,
+            description = description,
+            tags = item.tags(),
+            sourceId = CycaniSource.SOURCE_ID,
+            year = listOf("year", "releaseYear", "release_year", "vod_year")
+                .firstNotNullOfOrNull { item.string(it).takeIf(String::isNotBlank) }
+                .orEmpty()
+        )
+    }
+
+    internal fun JsonObject.tags(): String {
         val tags = get("tags") ?: get("class") ?: get("vod_class") ?: return ""
         return if (tags.isJsonArray) {
             tags.asJsonArray.mapNotNull { it.takeUnless(JsonElement::isJsonNull)?.asString }.joinToString("、")
@@ -51,10 +68,10 @@ object RecommendationParser {
         }
     }
 
-    private fun JsonObject.string(key: String): String =
+    internal fun JsonObject.string(key: String): String =
         get(key)?.takeUnless(JsonElement::isJsonNull)?.asString.orEmpty()
 
-    private fun normalizePoster(value: String): String {
+    internal fun normalizePoster(value: String): String {
         val proxyMarker = "/anime/api/image?url="
         val markerIndex = value.indexOf(proxyMarker)
         if (markerIndex < 0) return value

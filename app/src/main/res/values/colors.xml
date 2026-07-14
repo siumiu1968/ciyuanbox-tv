@@ -1,4 +1,5 @@
 <resources>
+    <color name="aulama_tv_background">#05070C</color>
     <color name="slate50">#f8fafc</color>
     <color name="slate100">#f1f5f9</color>
     <color name="slate200">#e2e8f0</color>
@@ -219,4 +220,6 @@
     <color name="rose700">#be123c</color>
     <color name="rose800">#9f1239</color>
     <color name="rose900">#881337</color>
+    <color name="aulama_playback_accent">#59E1E8</color>
+    <color name="aulama_playback_secondary">#80B9C5CD</color>
 </resources>

@@ -12,19 +12,26 @@ import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.tv.material3.Border
 import androidx.tv.material3.Button
 import androidx.tv.material3.ButtonDefaults
@@ -32,37 +39,55 @@ import androidx.tv.material3.ExperimentalTvMaterial3Api
 import androidx.tv.material3.Icon
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
+import coil.compose.AsyncImage
 import com.jing.sakura.R
+import com.jing.sakura.auth.AulamaAccount
 
 object AulamaTvColors {
-    val Background = Color(0xFF050810)
-    val BackgroundTeal = Color(0xFF071922)
-    val BackgroundPlum = Color(0xFF171024)
-    val Surface = Color(0xFF0A111C)
-    val SurfaceRaised = Color(0xFF111C2A)
-    val Outline = Color(0xFF2A3A4E)
-    val FocusBorder = Color(0xFF72EAF2)
-    val Cyan = Color(0xFF32D5E4)
-    val Pink = Color(0xFFFF4E9A)
-    val Blue = Color(0xFF7787FF)
-    val Amber = Color(0xFFF4C95D)
-    val Green = Color(0xFF58D68D)
-    val TextPrimary = Color(0xFFF3F7FA)
-    val TextSecondary = Color(0xFFAAB8C7)
+    val Background = Color(0xFF05070C)
+    val BackgroundTeal = Color(0xFF07151A)
+    val BackgroundPlum = Color(0xFF160B17)
+    val Surface = Color(0xE60A0E16)
+    val SurfaceRaised = Color(0xFF141A24)
+    val Outline = Color(0xFF303947)
+    val FocusBorder = Color(0xFF66E5EE)
+    val Cyan = Color(0xFF52DCE7)
+    val Pink = Color(0xFFFF4F91)
+    val Blue = Color(0xFF7597FF)
+    val Amber = Color(0xFFFFC76A)
+    val Green = Color(0xFF67D69B)
+    val TextPrimary = Color(0xFFF7F8FB)
+    val TextSecondary = Color(0xFFADB7C5)
 }
 
-val AulamaCardShape = RoundedCornerShape(12.dp)
-const val AulamaFocusScale = 1.035f
+val AulamaCardShape = RoundedCornerShape(8.dp)
+const val AulamaFocusScale = 1.06f
 
 fun Modifier.aulamaTvBackground(): Modifier = background(
     Brush.linearGradient(
         colorStops = arrayOf(
             0f to AulamaTvColors.BackgroundTeal,
-            0.42f to AulamaTvColors.Background,
+            0.52f to AulamaTvColors.Background,
             1f to AulamaTvColors.BackgroundPlum
         )
     )
 )
+
+@Composable
+fun AulamaAnimeBrandMark(
+    modifier: Modifier = Modifier,
+    height: androidx.compose.ui.unit.Dp = 50.dp
+) {
+    Image(
+        painter = painterResource(R.drawable.aulama_anime_wordmark),
+        contentDescription = "Aulama Anime",
+        modifier = modifier
+            .heightIn(min = height, max = height)
+            .width(height * AULAMA_WORDMARK_RATIO)
+    )
+}
+
+private const val AULAMA_WORDMARK_RATIO = 2.4308f
 
 @Composable
 fun AulamaPageHeader(
@@ -71,17 +96,19 @@ fun AulamaPageHeader(
     subtitle: String = "",
     trailing: @Composable RowScope.() -> Unit = {}
 ) {
+    val displayTitle = localizedText(title)
+    val displaySubtitle = localizedText(subtitle)
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .heightIn(min = 70.dp)
-            .padding(horizontal = 18.dp, vertical = 10.dp),
+            .heightIn(min = 76.dp)
+            .padding(horizontal = 36.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Image(
             painter = painterResource(R.drawable.aulama_anime_icon),
             contentDescription = null,
-            modifier = Modifier.size(46.dp)
+            modifier = Modifier.size(50.dp)
         )
         Spacer(Modifier.width(12.dp))
         Column(
@@ -89,15 +116,19 @@ fun AulamaPageHeader(
             verticalArrangement = Arrangement.spacedBy(2.dp)
         ) {
             Text(
-                text = title,
-                style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.SemiBold),
+                text = displayTitle,
+                style = MaterialTheme.typography.headlineMedium.copy(
+                    fontSize = 26.sp,
+                    lineHeight = 31.sp,
+                    fontWeight = FontWeight.SemiBold
+                ),
                 color = AulamaTvColors.TextPrimary,
                 maxLines = 1
             )
-            if (subtitle.isNotBlank()) {
+            if (displaySubtitle.isNotBlank()) {
                 Text(
-                    text = subtitle,
-                    style = MaterialTheme.typography.bodyMedium,
+                    text = displaySubtitle,
+                    style = MaterialTheme.typography.bodyMedium.copy(fontSize = 16.sp),
                     color = AulamaTvColors.TextSecondary,
                     maxLines = 1
                 )
@@ -114,21 +145,26 @@ fun AulamaSectionHeader(
     count: Int? = null,
     accent: Color = AulamaTvColors.Cyan
 ) {
+    val displayTitle = localizedText(title)
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 18.dp, vertical = 8.dp),
+            .padding(horizontal = 36.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Spacer(
             modifier = Modifier
-                .size(width = 4.dp, height = 24.dp)
+                .size(width = 4.dp, height = 26.dp)
                 .background(accent, RoundedCornerShape(2.dp))
         )
         Spacer(Modifier.width(10.dp))
         Text(
-            text = title,
-            style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.SemiBold),
+            text = displayTitle,
+            style = MaterialTheme.typography.headlineSmall.copy(
+                fontSize = 22.sp,
+                lineHeight = 27.sp,
+                fontWeight = FontWeight.SemiBold
+            ),
             color = AulamaTvColors.TextPrimary,
             modifier = Modifier.weight(1f),
             maxLines = 1
@@ -136,7 +172,7 @@ fun AulamaSectionHeader(
         count?.let {
             Text(
                 text = "$it 套",
-                style = MaterialTheme.typography.labelLarge,
+                style = MaterialTheme.typography.labelLarge.copy(fontSize = 15.sp),
                 color = AulamaTvColors.TextSecondary
             )
         }
@@ -153,10 +189,12 @@ fun AulamaActionButton(
     enabled: Boolean = true,
     accent: Color = AulamaTvColors.Cyan
 ) {
+    val displayLabel = localizedText(label)
     Button(
         onClick = onClick,
         enabled = enabled,
         modifier = modifier,
+        contentPadding = PaddingValues(horizontal = 18.dp, vertical = 0.dp),
         shape = ButtonDefaults.shape(shape = AulamaCardShape),
         scale = ButtonDefaults.scale(focusedScale = AulamaFocusScale),
         border = ButtonDefaults.border(
@@ -176,11 +214,64 @@ fun AulamaActionButton(
             focusedContentColor = Color(0xFF061014)
         )
     ) {
-        if (icon != null) {
-            Icon(imageVector = icon, contentDescription = null, modifier = Modifier.size(20.dp))
-            Spacer(Modifier.width(8.dp))
+        Row(
+            modifier = Modifier.height(52.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center
+        ) {
+            if (icon != null) {
+                Icon(imageVector = icon, contentDescription = null, modifier = Modifier.size(20.dp))
+                Spacer(Modifier.width(8.dp))
+            }
+            Text(
+                text = displayLabel,
+                maxLines = 1,
+                style = MaterialTheme.typography.titleMedium.copy(
+                    fontSize = 16.sp,
+                    lineHeight = 20.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+            )
         }
-        Text(text = label, maxLines = 1)
+    }
+}
+
+@Composable
+fun AulamaAccountAvatar(
+    account: AulamaAccount,
+    modifier: Modifier = Modifier
+) {
+    val photoUrl = remember(account.photoUrl) { normalizeAccountPhotoUrl(account.photoUrl) }
+    androidx.compose.foundation.layout.Box(
+        modifier = modifier
+            .clip(CircleShape)
+            .background(AulamaTvColors.Cyan.copy(alpha = 0.16f)),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = account.name.trim().firstOrNull()?.uppercase() ?: "A",
+            color = AulamaTvColors.TextPrimary,
+            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
+        )
+        if (photoUrl.isNotBlank()) {
+            AsyncImage(
+                model = photoUrl,
+                contentDescription = account.name,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .matchParentSize()
+                    .clip(CircleShape)
+            )
+        }
+    }
+}
+
+private fun normalizeAccountPhotoUrl(value: String): String {
+    val normalized = value.trim()
+    return when {
+        normalized.startsWith("//") -> "https:$normalized"
+        normalized.startsWith("/") -> "https://aulama.org$normalized"
+        else -> normalized
     }
 }
 
@@ -197,8 +288,8 @@ fun AulamaIconButton(
     Button(
         onClick = onClick,
         enabled = enabled,
-        modifier = modifier.size(48.dp),
-        contentPadding = androidx.compose.foundation.layout.PaddingValues(12.dp),
+        modifier = modifier.size(52.dp),
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(13.dp),
         shape = ButtonDefaults.shape(shape = AulamaCardShape),
         scale = ButtonDefaults.scale(focusedScale = AulamaFocusScale),
         border = ButtonDefaults.border(
@@ -221,7 +312,7 @@ fun AulamaIconButton(
         Icon(
             imageVector = icon,
             contentDescription = contentDescription,
-            modifier = Modifier.size(22.dp)
+            modifier = Modifier.size(24.dp)
         )
     }
 }

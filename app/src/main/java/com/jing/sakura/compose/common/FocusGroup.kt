@@ -40,7 +40,6 @@ import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.platform.LocalFocusManager
-import androidx.tv.foundation.ExperimentalTvFoundationApi
 
 /**
  * Composable container that provides modifier extensions to allow focus to be restored to the
@@ -51,7 +50,6 @@ import androidx.tv.foundation.ExperimentalTvFoundationApi
  * extensions.
  */
 @OptIn(ExperimentalComposeUiApi::class, ExperimentalFoundationApi::class)
-@ExperimentalTvFoundationApi
 @Composable
 fun FocusGroup(
     modifier: Modifier = Modifier,
@@ -89,7 +87,6 @@ fun FocusGroup(
 /**
  * Scope containing the modifier extensions to be used within [FocusGroup].
  */
-@ExperimentalTvFoundationApi
 class FocusGroupScope internal constructor(private val state: FocusGroupState) {
     private var currentFocusableIdIndex = 0
 
@@ -151,7 +148,6 @@ class FocusGroupScope internal constructor(private val state: FocusGroupState) {
 }
 
 @Stable
-@ExperimentalTvFoundationApi
 internal class FocusGroupState(
     private var previousFocusedItemHash: MutableState<Int?>
 ) {

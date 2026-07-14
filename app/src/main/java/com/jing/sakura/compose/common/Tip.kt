@@ -23,7 +23,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -31,6 +30,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.tv.material3.Border
 import androidx.tv.material3.Button
 import androidx.tv.material3.ButtonDefaults
@@ -69,14 +69,6 @@ fun Loading(text: String = "載入中"): Unit {
                 modifier = Modifier
                     .size(88.dp)
                     .scale(pulse.value)
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            Image(
-                painter = painterResource(id = R.drawable.aulama_anime_wordmark),
-                contentDescription = stringResource(R.string.app_name),
-                modifier = Modifier
-                    .size(width = 174.dp, height = 64.dp)
-                    .alpha(0.96f)
             )
             Spacer(modifier = Modifier.height(6.dp))
             CircularProgressIndicator(

@@ -9,6 +9,10 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -28,10 +32,6 @@ import androidx.compose.material.icons.filled.ChangeCircle
 import androidx.paging.LoadState
 import androidx.paging.compose.collectAsLazyPagingItems
 import androidx.paging.compose.itemKey
-import androidx.tv.foundation.lazy.grid.TvGridCells
-import androidx.tv.foundation.lazy.grid.TvGridItemSpan
-import androidx.tv.foundation.lazy.grid.TvLazyVerticalGrid
-import androidx.tv.foundation.lazy.grid.rememberTvLazyGridState
 import androidx.tv.material3.Button
 import androidx.tv.material3.ExperimentalTvMaterial3Api
 import androidx.tv.material3.MaterialTheme
@@ -55,7 +55,7 @@ fun SearchResultScreen(viewModel: SearchResultViewModel) {
     val context = LocalContext.current
     val pagingItems = viewModel.pager.collectAsLazyPagingItems()
     val refreshState = pagingItems.loadState.refresh
-    val gridState = rememberTvLazyGridState()
+    val gridState = rememberLazyGridState()
     val cardWidth = dimensionResource(id = R.dimen.poster_width)
     val cardHeight = dimensionResource(id = R.dimen.poster_height)
     val scale = 1.08f
@@ -74,15 +74,15 @@ fun SearchResultScreen(viewModel: SearchResultViewModel) {
         val firstItemFocusRequester = remember {
             FocusRequester()
         }
-        TvLazyVerticalGrid(
-            columns = TvGridCells.Adaptive(containerWidth),
+        LazyVerticalGrid(
+            columns = GridCells.Adaptive(containerWidth),
             state = gridState,
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(horizontal = 18.dp, vertical = 8.dp),
             horizontalArrangement = Arrangement.spacedBy(10.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
             content = {
-                item(span = { TvGridItemSpan(maxLineSpan) }) {
+                item(span = { GridItemSpan(maxLineSpan) }) {
                     AulamaPageHeader(
                         title = stringResource(R.string.search_result_title),
                         subtitle = stringResource(

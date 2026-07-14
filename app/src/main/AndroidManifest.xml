@@ -52,7 +52,8 @@
 
         <activity
             android:name=".player.PlaybackActivity"
-            android:exported="false" />
+            android:exported="false"
+            android:theme="@style/Theme.SakuraPlayback" />
 
         <activity
             android:name=".history.HistoryActivity"

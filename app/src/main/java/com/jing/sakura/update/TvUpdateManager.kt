@@ -16,12 +16,18 @@ import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.util.concurrent.TimeUnit
+import java.io.IOException
 
 data class TvUpdate(
     val version: String,
     val downloadUrl: String,
     val notes: String
 )
+
+sealed interface TvUpdateCheckResult {
+    data class Available(val update: TvUpdate) : TvUpdateCheckResult
+    data object UpToDate : TvUpdateCheckResult
+}
 
 class TvUpdateManager(private val activity: Activity) {
     private val downloadManager = activity.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
@@ -32,29 +38,45 @@ class TvUpdateManager(private val activity: Activity) {
         .build()
     private var installPermissionRequested = false
 
-    suspend fun checkForUpdate(): TvUpdate? = withContext(Dispatchers.IO) {
+    suspend fun checkForUpdate(): TvUpdate? =
+        when (val result = checkForUpdateDetailed()) {
+            is TvUpdateCheckResult.Available -> result.update
+            TvUpdateCheckResult.UpToDate -> null
+        }
+
+    suspend fun checkForUpdateDetailed(): TvUpdateCheckResult = withContext(Dispatchers.IO) {
         val request = Request.Builder()
             .url(LATEST_RELEASE_URL)
             .header("Accept", "application/vnd.github+json")
             .header("User-Agent", "Aulama-Anime-TV/${BuildConfig.VERSION_NAME}")
             .build()
         client.newCall(request).execute().use { response ->
-            if (!response.isSuccessful) return@withContext null
+            if (!response.isSuccessful) {
+                throw IOException("GitHub Release request failed: ${response.code}")
+            }
             val root = JsonParser.parseString(response.body?.string().orEmpty()).asJsonObject
-            if (root.get("draft")?.asBoolean == true) return@withContext null
-            val version = root.get("tag_name")?.asString.orEmpty().removePrefix("v")
-            if (!isNewerVersion(version, BuildConfig.VERSION_NAME)) return@withContext null
-            val asset = root.getAsJsonArray("assets")
+            if (root.get("draft")?.asBoolean == true) return@withContext TvUpdateCheckResult.UpToDate
+            val version = extractVersion(root.get("tag_name")?.asString.orEmpty())
+            if (!isNewerVersion(version, BuildConfig.VERSION_NAME)) {
+                return@withContext TvUpdateCheckResult.UpToDate
+            }
+            val apkAssets = root.getAsJsonArray("assets")
                 ?.mapNotNull { it.takeIf { value -> value.isJsonObject }?.asJsonObject }
-                ?.firstOrNull { item ->
+                ?.filter { item ->
                     item.get("name")?.asString.orEmpty().endsWith(".apk", ignoreCase = true)
                 }
-                ?: return@withContext null
-            TvUpdate(
+                .orEmpty()
+            val asset = apkAssets.firstOrNull { item ->
+                item.get("name")?.asString.orEmpty().contains("tv", ignoreCase = true)
+            } ?: apkAssets.firstOrNull()
+            if (asset == null) throw IOException("Release does not contain an APK")
+            val update = TvUpdate(
                 version = version,
                 downloadUrl = asset.get("browser_download_url")?.asString.orEmpty(),
                 notes = root.get("body")?.asString.orEmpty().trim().take(360)
-            ).takeIf { it.downloadUrl.isNotBlank() }
+            )
+            if (update.downloadUrl.isBlank()) throw IOException("Release APK URL is empty")
+            TvUpdateCheckResult.Available(update)
         }
     }
 
@@ -138,6 +160,9 @@ class TvUpdateManager(private val activity: Activity) {
         return false
     }
 
+    private fun extractVersion(value: String): String =
+        VERSION_PATTERN.find(value)?.value.orEmpty()
+
     private fun String.toVersionParts(): List<Int> =
         substringBefore('-')
             .split('.')
@@ -149,5 +174,6 @@ class TvUpdateManager(private val activity: Activity) {
         private const val APK_MIME_TYPE = "application/vnd.android.package-archive"
         private const val PREFERENCES = "tv_update"
         private const val PENDING_DOWNLOAD_ID = "pending_download_id"
+        private val VERSION_PATTERN = Regex("\\d+(?:\\.\\d+)+")
     }
 }

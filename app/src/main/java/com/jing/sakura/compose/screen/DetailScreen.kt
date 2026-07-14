@@ -2,12 +2,12 @@
 
 package com.jing.sakura.compose.screen
 
-import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.border
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.animateScrollBy
@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -25,9 +26,20 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Bookmark
+import androidx.compose.material.icons.filled.BookmarkBorder
+import androidx.compose.material.icons.filled.ChevronLeft
+import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.SwapVert
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -39,13 +51,15 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
@@ -54,46 +68,38 @@ import androidx.compose.ui.input.key.type
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
-import androidx.compose.ui.res.dimensionResource
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
-import androidx.tv.foundation.ExperimentalTvFoundationApi
-import androidx.tv.foundation.PivotOffsets
-import androidx.tv.foundation.lazy.list.TvLazyColumn
-import androidx.tv.foundation.lazy.list.TvLazyListState
-import androidx.tv.foundation.lazy.list.TvLazyRow
-import androidx.tv.foundation.lazy.list.rememberTvLazyListState
 import androidx.tv.material3.Border
-import androidx.tv.material3.CardDefaults
 import androidx.tv.material3.ClickableSurfaceDefaults
-import androidx.tv.material3.ClickableSurfaceScale
-import androidx.tv.material3.CompactCard
 import androidx.tv.material3.ExperimentalTvMaterial3Api
+import androidx.tv.material3.Icon
 import androidx.tv.material3.MaterialTheme
-import androidx.tv.material3.ProvideTextStyle
 import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
 import coil.compose.AsyncImage
 import com.jing.sakura.R
+import com.jing.sakura.compose.common.AulamaCardShape
+import com.jing.sakura.compose.common.AulamaFocusScale
+import com.jing.sakura.compose.common.AulamaTvColors
 import com.jing.sakura.compose.common.ErrorTip
 import com.jing.sakura.compose.common.FocusGroup
 import com.jing.sakura.compose.common.Loading
-import com.jing.sakura.compose.common.AulamaCardShape
-import com.jing.sakura.compose.common.AulamaFocusScale
-import com.jing.sakura.compose.common.AulamaSectionHeader
-import com.jing.sakura.compose.common.AulamaTvColors
-import com.jing.sakura.compose.common.rememberDpadRepeatGate
-import com.jing.sakura.compose.common.rememberPosterImageRequest
 import com.jing.sakura.compose.common.UpAndDownFocusProperties
-import com.jing.sakura.compose.common.Value
 import com.jing.sakura.compose.common.VideoCard
 import com.jing.sakura.compose.common.applyUpAndDown
+import com.jing.sakura.compose.common.localizedText
+import com.jing.sakura.compose.common.rememberArtworkAccent
+import com.jing.sakura.compose.common.rememberDpadRepeatGate
+import com.jing.sakura.compose.common.rememberPosterImageRequest
 import com.jing.sakura.compose.common.toDisplayLineName
 import com.jing.sakura.data.AnimeData
 import com.jing.sakura.data.AnimeDetailPageData
@@ -103,690 +109,1170 @@ import com.jing.sakura.data.Resource
 import com.jing.sakura.detail.DetailActivity
 import com.jing.sakura.detail.DetailPageViewModel
 import com.jing.sakura.extend.secondsToMinuteAndSecondText
+import com.jing.sakura.extend.showShortToast
 import com.jing.sakura.player.NavigateToPlayerArg
 import com.jing.sakura.player.PlaybackActivity
 import com.jing.sakura.room.VideoHistoryEntity
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import androidx.compose.foundation.shape.RoundedCornerShape
 
-@OptIn(ExperimentalTvMaterial3Api::class, ExperimentalTvFoundationApi::class)
+private val DetailHeroHeight = 346.dp
+private val RelatedContentShift = 96.dp
+private const val DetailDepthAnimationMillis = 240
+
 @Composable
 fun DetailScreen(viewModel: DetailPageViewModel) {
-    val videoDetailResource = viewModel.detailPageData.collectAsState().value
-    if (videoDetailResource == Resource.Loading) {
-        Loading()
-        return
+    val context = LocalContext.current
+    LaunchedEffect(viewModel) {
+        viewModel.favoriteErrors.collect(context::showShortToast)
     }
-    if (videoDetailResource is Resource.Error) {
-        ErrorTip(message = videoDetailResource.message) {
-            viewModel.loadData()
+    val detailResource = viewModel.detailPageData.collectAsState().value
+    when (detailResource) {
+        Resource.Loading -> {
+            Loading()
+            return
         }
-        return
+
+        is Resource.Error -> {
+            ErrorTip(message = detailResource.message) { viewModel.loadData() }
+            return
+        }
+
+        else -> Unit
     }
-    val resumeFocusSignal = remember {
-        Value(0)
-    }
+
+    val detail = (detailResource as Resource.Success).data
+    val displayAnimeName = localizedText(detail.animeName)
     val lifecycleOwner = LocalLifecycleOwner.current
+    val scope = rememberCoroutineScope()
+    val history = viewModel.latestProgress.collectAsState().value.getOrNull()
+    val detailAccent = rememberArtworkAccent(detail.imageUrl)
+    val favoriteUiState = viewModel.favoriteUiState.collectAsState().value
+    var reverseEpisodes by remember { mutableStateOf(false) }
+    var resumeFocusSignal by remember { mutableStateOf(0) }
+    var restoreEpisodePosition by remember { mutableStateOf(-1 to -1) }
+
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_START) {
-                viewModel.fetchHistory()
-            }
-            if (event == Lifecycle.Event.ON_RESUME) {
-                resumeFocusSignal.value += 1
-            }
+            if (event == Lifecycle.Event.ON_START) viewModel.fetchHistory()
+            if (event == Lifecycle.Event.ON_RESUME) resumeFocusSignal += 1
         }
         lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose {
-            lifecycleOwner.lifecycle.removeObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
+    val playlists = remember(detail.playLists, reverseEpisodes) {
+        detail.playLists.mapIndexed { index, playlist ->
+            PlayListWrapper(
+                id = index,
+                playlist = if (reverseEpisodes) {
+                    playlist.copy(episodeList = playlist.episodeList.reversed())
+                } else {
+                    playlist
+                }
+            )
         }
     }
-    val videoDetail = (videoDetailResource as Resource.Success).data
-    val context = LocalContext.current
-    var reverseEpisode by remember {
-        mutableStateOf(false)
-    }
-
-    val currentFocusedEpisodeId = remember {
-        Value("")
-    }
-
-    val videoHistory = viewModel.latestProgress.collectAsState().value.getOrNull()
-
-    val nextPlayListId = remember {
-        Value(0)
-    }
-
-    val playlists =
-        remember(reverseEpisode, videoHistory?.episodeId) {
-            if (reverseEpisode) {
-                videoDetail.playLists.map {
-                    PlayListWrapper(
-                        id = nextPlayListId.value++,
-                        playlist = it.copy(episodeList = it.episodeList.reversed())
-                    )
-                }
-            } else {
-                videoDetail.playLists.map {
-                    PlayListWrapper(
-                        id = nextPlayListId.value++,
-                        playlist = it
-                    )
-                }
+    var focusedEpisodeIndexes by remember(playlists, history?.episodeId) {
+        val focused = MutableList(playlists.size) { 0 }
+        history?.episodeId?.let { episodeId ->
+            playlists.forEachIndexed { playlistIndex, wrapper ->
+                wrapper.playlist.episodeList.indexOfFirst { it.episodeId == episodeId }
+                    .takeIf { it >= 0 }
+                    ?.let { focused[playlistIndex] = it }
             }
         }
-
-    val focusedEpisodeIndex = remember(videoHistory?.episodeId) {
-        val episodeId = videoHistory?.episodeId
-        var lastPlayPosition = 0 to 0
-        if (episodeId != null) {
-            out@ for ((playListIndex, playList) in playlists.withIndex()) {
-                for ((episodeIndex, episode) in playList.playlist.episodeList.withIndex()) {
-                    if (episodeId == episode.episodeId) {
-                        lastPlayPosition = playListIndex to episodeIndex
-                        break@out
-                    }
-                }
-            }
-        }
-        Value(MutableList(videoDetail.playLists.size) { if (it == lastPlayPosition.first) lastPlayPosition.second else 0 })
+        mutableStateOf(focused)
     }
 
-    // 切换正序/倒序排序时, 更新索引
-    val changeFocusedEpisodeIndexForReversed = {
-        videoDetail.playLists.forEachIndexed { index, _ ->
-            focusedEpisodeIndex.value[index] = 0
-        }
-    }
-
-    val focusRequesters = remember(playlists.size, videoDetail.otherAnimeList.isEmpty()) {
+    val focusRequesters = remember(playlists.size, detail.otherAnimeList.isEmpty()) {
         DetailPageRowFocusRequesters(
-            infoRow = FocusRequester(),
-            playListReverseButton = if (playlists.isNotEmpty()) FocusRequester() else null,
-            playListRows = List(playlists.size) { FocusRequester() },
-            otherAnimeRow = if (videoDetail.otherAnimeList.isNotEmpty()) FocusRequester() else null
+            hero = FocusRequester(),
+            order = playlists.firstOrNull()?.let { FocusRequester() },
+            playlists = List(playlists.size) { FocusRequester() },
+            related = detail.otherAnimeList.takeIf(List<AnimeData>::isNotEmpty)?.let { FocusRequester() }
         )
     }
+    val primaryActionFocusRequester = remember(detail.animeId) { FocusRequester() }
+    val restoreEpisodeFocusRequester = remember { FocusRequester() }
+    val detailListState = rememberLazyListState()
+    var relatedContentFocused by remember(detail.animeId) { mutableStateOf(false) }
+    val detailDepthProgress by animateFloatAsState(
+        targetValue = if (relatedContentFocused) 1f else 0f,
+        animationSpec = tween(
+            durationMillis = DetailDepthAnimationMillis,
+            easing = FastOutSlowInEasing
+        ),
+        label = "detail-depth"
+    )
+    val hasDetailRows = playlists.isNotEmpty() || detail.otherAnimeList.isNotEmpty()
 
-    val shouldFocusReverseButton = remember {
-        Value(false)
+    val primaryPlayPosition = remember(
+        playlists,
+        history?.episodeId,
+        detail.defaultPlayListIndex,
+        detail.lastPlayEpisodePosition
+    ) {
+        fun valid(position: Pair<Int, Int>): Boolean =
+            position.first in playlists.indices &&
+                position.second in playlists[position.first].playlist.episodeList.indices
+
+        val historyPosition = history?.episodeId?.let { episodeId ->
+            playlists.forEachIndexed { playlistIndex, wrapper ->
+                val episodeIndex = wrapper.playlist.episodeList.indexOfFirst { it.episodeId == episodeId }
+                if (episodeIndex >= 0) return@let playlistIndex to episodeIndex
+            }
+            null
+        }
+        val defaultPosition = detail.defaultPlayListIndex to 0
+        listOfNotNull(historyPosition, detail.lastPlayEpisodePosition, defaultPosition)
+            .firstOrNull(::valid)
+            ?: playlists.indexOfFirst { it.playlist.episodeList.isNotEmpty() }
+                .takeIf { it >= 0 }
+                ?.let { it to 0 }
     }
 
-    // 进入播放页,返回后恢复焦点
-    val restoreEpisodeFocusRequester = remember {
-        FocusRequester()
-    }
-    val restoreEpisodePosition = remember {
-        Value(-1 to -1)
+    val onPrimaryPlay = primaryPlayPosition?.let { (playlistIndex, episodeIndex) ->
+        {
+            openPlayback(
+                context = context,
+                animeName = displayAnimeName,
+                detail = detail,
+                playlist = playlists[playlistIndex].playlist,
+                episodeIndex = episodeIndex,
+                sourceId = viewModel.sourceId
+            )
+        }
     }
 
-    val initialFocusSet = remember {
-        Value(false)
-    }
-
-    TvLazyColumn(
-        modifier = Modifier.fillMaxSize(), content = {
-            item {
-                VideoInfoRow(
-                    videoDetail = videoDetail,
-                    modifier = Modifier
-                        .focusRequester(focusRequesters.infoRow),
-                    playHistory = videoHistory
-                ) {
-                    viewModel.loadData()
-                }
-                LaunchedEffect(Unit) {
-                    if (!initialFocusSet.value) {
-                        initialFocusSet.value = true
-                        runCatching { focusRequesters.infoRow.requestFocus() }.onFailure { it.printStackTrace() }
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(AulamaTvColors.Background)
+    ) {
+        DetailBackdrop(imageUrl = detail.imageUrl, accent = detailAccent)
+        DetailHero(
+            detail = detail,
+            history = history,
+            onPlayClick = onPrimaryPlay,
+            isFavorite = favoriteUiState.isFavorite,
+            favoriteEnabled = !favoriteUiState.isLoading && !favoriteUiState.isUpdating,
+            onFavoriteClick = { viewModel.toggleFavorite(detail) },
+            primaryActionFocusRequester = primaryActionFocusRequester,
+            accent = detailAccent,
+            modifier = Modifier
+                .run {
+                    if (detailDepthProgress > 0.001f) {
+                        graphicsLayer {
+                            translationY = -64.dp.toPx() * detailDepthProgress
+                            alpha = 1f - (0.68f * detailDepthProgress)
+                        }
+                    } else {
+                        this
                     }
                 }
-            }
+                .focusRequester(focusRequesters.hero)
+                .onFocusChanged { state ->
+                    if (state.isFocused || state.hasFocus) {
+                        relatedContentFocused = false
+                        if (hasDetailRows) {
+                            scope.launch { detailListState.animateScrollToItem(0) }
+                        }
+                    }
+                }
+        )
+        LazyColumn(
+            state = detailListState,
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(top = DetailHeroHeight)
+                .run {
+                    if (detailDepthProgress > 0.001f) {
+                        graphicsLayer {
+                            translationY = -RelatedContentShift.toPx() * detailDepthProgress
+                        }
+                    } else {
+                        this
+                    }
+                },
+            contentPadding = PaddingValues(bottom = 44.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
             items(
                 count = playlists.size,
-                key = { playlists[it].id }
+                key = { "playlist-${playlists[it].id}-$reverseEpisodes" }
             ) { playlistIndex ->
                 val playlist = playlists[playlistIndex].playlist
-                val initiallyFocusedIndex = focusedEpisodeIndex.value[playlistIndex]
-                val listState =
-                    rememberTvLazyListState(initialFirstVisibleItemIndex = initiallyFocusedIndex)
-                PlayListRow(
+                val initialIndex = focusedEpisodeIndexes.getOrElse(playlistIndex) { 0 }
+                    .coerceIn(0, (playlist.episodeList.lastIndex).coerceAtLeast(0))
+                EpisodeSection(
+                    title = localizedText(playlist.name.toDisplayLineName()),
                     episodes = playlist.episodeList,
+                    initiallyFocusedIndex = initialIndex,
+                    currentEpisodeId = history?.episodeId,
+                    showOrderControl = playlistIndex == 0,
+                    reverseEpisodes = reverseEpisodes,
+                    orderFocusRequester = focusRequesters.order,
                     modifier = Modifier
-                        .focusRequester(focusRequesters.playListRows[playlistIndex]),
-                    initiallyFocusedIndex = initiallyFocusedIndex,
-                    listState = listState,
-                    onEpisodeFocused = { epIndex, ep ->
-                        focusedEpisodeIndex.value[playlistIndex] = epIndex
-                        currentFocusedEpisodeId.value = ep.episodeId
-                    },
-                    restoreFocusEpIndex = if (restoreEpisodePosition.value.first == playlistIndex) restoreEpisodePosition.value.second else -1,
-                    restoreFocusRequester = restoreEpisodeFocusRequester,
-                    title = {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)
-                        ) {
-                            Text(
-                                text = playlist.name.toDisplayLineName(),
-                                style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
-                                color = Color(0xFFF4F6FF)
-                            )
-                            Text(
-                                text = "${playlist.episodeList.size} 集",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = AulamaTvColors.TextSecondary
-                            )
-                            if (playlistIndex == 0) {
-                                Surface(
-                                    onClick = {
-                                        changeFocusedEpisodeIndexForReversed()
-                                        shouldFocusReverseButton.value = true
-                                        reverseEpisode = !reverseEpisode
-                                    },
-                                    scale = ClickableSurfaceScale.None,
-                                    colors = ClickableSurfaceDefaults.colors(
-                                        focusedContainerColor = MaterialTheme.colorScheme.surface
-                                    ),
-                                    shape = ClickableSurfaceDefaults.shape(shape = MaterialTheme.shapes.small),
-                                    border = ClickableSurfaceDefaults.border(
-                                        focusedBorder = Border(
-                                            BorderStroke(
-                                                2.dp, MaterialTheme.colorScheme.border
-                                            )
-                                        )
-                                    ),
-                                    modifier = Modifier
-                                        .focusRequester(focusRequesters.playListReverseButton!!)
-                                ) {
-                                    Text(
-                                        text = if (reverseEpisode) {
-                                            stringResource(R.string.button_reverse_order)
-                                        } else {
-                                            stringResource(R.string.button_positive_order)
-                                        },
-                                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
-                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
-                                    )
-                                }
+                        .focusRequester(focusRequesters.playlists[playlistIndex])
+                        .onFocusChanged { state ->
+                            if (state.isFocused || state.hasFocus) {
+                                relatedContentFocused = false
                             }
-                            LaunchedEffect(shouldFocusReverseButton) {
-                                if (shouldFocusReverseButton.value) {
-                                    shouldFocusReverseButton.value = false
-                                    runCatching { focusRequesters.playListReverseButton?.requestFocus() }
-                                }
+                        },
+                    restoreFocusRequester = restoreEpisodeFocusRequester,
+                    restoreFocusEpisodeIndex = restoreEpisodePosition
+                        .takeIf { it.first == playlistIndex }
+                        ?.second
+                        ?: -1,
+                    onToggleOrder = {
+                        focusedEpisodeIndexes = MutableList(playlists.size) { 0 }
+                        reverseEpisodes = !reverseEpisodes
+                        scope.launch {
+                            delay(90)
+                            runCatching { focusRequesters.order?.requestFocus() }
+                        }
+                    },
+                    onReturnToHero = {
+                        relatedContentFocused = false
+                        scope.launch {
+                            detailListState.scrollToItem(0)
+                            val primaryFocusResult = runCatching {
+                                primaryActionFocusRequester.requestFocus()
+                            }
+                            if (primaryFocusResult.isFailure) {
+                                runCatching { focusRequesters.hero.requestFocus() }
                             }
                         }
-                    }) { epIndex, _ ->
-                    restoreEpisodePosition.value = playlistIndex to epIndex
-                    PlaybackActivity.startActivity(
-                        context,
-                        NavigateToPlayerArg(
-                            animeName = videoDetail.animeName,
-                            animeId = videoDetail.animeId,
-                            coverUrl = videoDetail.imageUrl,
-                            playIndex = epIndex,
-                            playlist = playlist.episodeList,
+                    },
+                    onEpisodeFocused = { episodeIndex, _ ->
+                        focusedEpisodeIndexes = focusedEpisodeIndexes.toMutableList().also {
+                            it[playlistIndex] = episodeIndex
+                        }
+                    },
+                    onEpisodeClick = { episodeIndex, _ ->
+                        restoreEpisodePosition = playlistIndex to episodeIndex
+                        openPlayback(
+                            context = context,
+                            animeName = displayAnimeName,
+                            detail = detail,
+                            playlist = playlist,
+                            episodeIndex = episodeIndex,
                             sourceId = viewModel.sourceId
                         )
-                    )
-                }
+                    }
+                )
             }
-            item {
-                if (videoDetail.otherAnimeList.isNotEmpty()) {
-                    RelativeVideoRow(
-                        videoDetail.otherAnimeList,
-                        viewModel.sourceId,
-                        Modifier
-                            .focusRequester(focusRequesters.otherAnimeRow!!)
-                    )
-                }
-            }
-        }, verticalArrangement = Arrangement.spacedBy(10.dp)
-    )
 
-    LaunchedEffect(resumeFocusSignal.value, restoreEpisodePosition.value) {
-        if (resumeFocusSignal.value > 0 && restoreEpisodePosition.value.first >= 0 && restoreEpisodePosition.value.second >= 0) {
-            delay(140)
-            runCatching {
-                restoreEpisodeFocusRequester.requestFocus()
+            if (detail.otherAnimeList.isNotEmpty()) {
+                item(key = "related") {
+                    RelatedAnimeSection(
+                        videos = detail.otherAnimeList,
+                        sourceId = viewModel.sourceId,
+                        modifier = Modifier
+                            .focusRequester(focusRequesters.related!!)
+                            .onFocusChanged { state ->
+                                if (state.isFocused || state.hasFocus) {
+                                    relatedContentFocused = true
+                                }
+                            }
+                    )
+                }
             }
-            restoreEpisodePosition.value = -1 to -1
+        }
+    }
+
+    LaunchedEffect(detail.animeId) {
+        if (hasDetailRows) detailListState.scrollToItem(0)
+        delay(80)
+        runCatching { focusRequesters.hero.requestFocus() }
+        delay(90)
+        if (hasDetailRows) detailListState.scrollToItem(0)
+    }
+    LaunchedEffect(resumeFocusSignal) {
+        if (restoreEpisodePosition.first >= 0 && restoreEpisodePosition.second >= 0) {
+            relatedContentFocused = false
+            delay(140)
+            runCatching { restoreEpisodeFocusRequester.requestFocus() }
+            restoreEpisodePosition = -1 to -1
         }
     }
 }
 
-@OptIn(ExperimentalTvFoundationApi::class)
 @Composable
-fun RelativeVideoRow(
-    videos: List<AnimeData>,
-    sourceId: String,
-    modifier: Modifier,
-    upAndDownFocusProperties: UpAndDownFocusProperties = UpAndDownFocusProperties.DEFAULT
-) {
-    if (videos.isEmpty()) {
-        return
+private fun DetailBackdrop(imageUrl: String, accent: Color) {
+    Box(modifier = Modifier.fillMaxSize()) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.radialGradient(
+                        colors = listOf(
+                            accent.copy(alpha = 0.2f),
+                            Color.Transparent
+                        ),
+                        radius = 980f
+                    )
+                )
+        )
+        AsyncImage(
+            model = rememberPosterImageRequest(imageUrl = imageUrl, widthPx = 1040, heightPx = 1040),
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
+            alignment = Alignment.TopEnd,
+            modifier = Modifier
+                .align(Alignment.CenterEnd)
+                .fillMaxWidth(0.58f)
+                .fillMaxHeight()
+                .graphicsLayer { alpha = 0.38f }
+        )
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.horizontalGradient(
+                        colorStops = arrayOf(
+                            0f to AulamaTvColors.Background,
+                            0.42f to AulamaTvColors.Background.copy(alpha = 0.98f),
+                            0.72f to AulamaTvColors.Background.copy(alpha = 0.62f),
+                            1f to AulamaTvColors.Background.copy(alpha = 0.18f)
+                        )
+                    )
+                )
+        )
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.verticalGradient(
+                        colorStops = arrayOf(
+                            0f to AulamaTvColors.Background.copy(alpha = 0.28f),
+                            0.56f to Color.Transparent,
+                            1f to AulamaTvColors.Background
+                        )
+                    )
+                )
+        )
     }
-    val context = LocalContext.current
+}
+
+@Composable
+private fun DetailHero(
+    detail: AnimeDetailPageData,
+    history: VideoHistoryEntity?,
+    onPlayClick: (() -> Unit)?,
+    isFavorite: Boolean,
+    favoriteEnabled: Boolean,
+    onFavoriteClick: () -> Unit,
+    primaryActionFocusRequester: FocusRequester,
+    accent: Color,
+    modifier: Modifier = Modifier
+) {
+    val displayTitle = localizedText(detail.animeName)
+    val displayDescription = localizedText(detail.description).trim()
+    val episodeCount = detail.playLists.maxOfOrNull { it.episodeList.size } ?: 0
+    val metadata = compactDetailMetadata(detail.infoList, episodeCount)
+    var showDescription by remember { mutableStateOf(false) }
+
+    FocusGroup(modifier) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(DetailHeroHeight)
+                .padding(start = 44.dp, end = 44.dp, top = 18.dp, bottom = 18.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            DetailPoster(
+                imageUrl = detail.imageUrl,
+                title = displayTitle,
+                accent = accent,
+            )
+            Spacer(modifier = Modifier.width(32.dp))
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .widthIn(max = 620.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Text(
+                    text = displayTitle,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    style = MaterialTheme.typography.displaySmall.copy(
+                        fontSize = 37.sp,
+                        lineHeight = 43.sp,
+                        fontWeight = FontWeight.Bold
+                    ),
+                    color = accent
+                )
+                if (metadata.isNotBlank()) {
+                    Text(
+                        text = metadata,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            fontSize = 15.sp,
+                            lineHeight = 20.sp,
+                            fontWeight = FontWeight.Medium
+                        ),
+                        color = AulamaTvColors.TextSecondary
+                    )
+                }
+                if (displayDescription.isNotBlank()) {
+                    Text(
+                        text = displayDescription,
+                        maxLines = 3,
+                        overflow = TextOverflow.Ellipsis,
+                        style = MaterialTheme.typography.bodyLarge.copy(
+                            fontSize = 17.sp,
+                            lineHeight = 23.sp
+                        ),
+                        color = AulamaTvColors.TextPrimary
+                    )
+                }
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    onPlayClick?.let { play ->
+                        DetailActionButton(
+                            label = if (history == null) "立即播放" else "繼續播放",
+                            icon = Icons.Default.PlayArrow,
+                            accent = accent,
+                            onClick = play,
+                            modifier = Modifier
+                                .width(142.dp)
+                                .focusRequester(primaryActionFocusRequester)
+                                .initiallyFocused()
+                        )
+                    }
+                    if (displayDescription.isNotBlank()) {
+                        DetailActionButton(
+                            label = "完整簡介",
+                            icon = Icons.Default.Info,
+                            accent = AulamaTvColors.Pink,
+                            onClick = { showDescription = true },
+                            modifier = Modifier
+                                .width(132.dp)
+                                .restorableFocus()
+                        )
+                    }
+                    DetailActionButton(
+                        label = if (isFavorite) "已收藏" else "收藏",
+                        icon = if (isFavorite) Icons.Default.Bookmark else Icons.Default.BookmarkBorder,
+                        accent = if (isFavorite) AulamaTvColors.Cyan else AulamaTvColors.Amber,
+                        enabled = favoriteEnabled,
+                        onClick = onFavoriteClick,
+                        modifier = Modifier
+                            .width(116.dp)
+                            .restorableFocus()
+                    )
+                }
+                history?.let {
+                    PlaybackProgressLine(history = it, accent = accent)
+                }
+            }
+        }
+    }
+
+    if (showDescription) {
+        DescriptionDialog(
+            title = displayTitle,
+            description = displayDescription,
+            accent = accent,
+            onDismiss = { showDescription = false }
+        )
+    }
+}
+
+@Composable
+private fun DetailActionButton(
+    label: String,
+    icon: ImageVector,
+    accent: Color,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true
+) {
+    val shape = RoundedCornerShape(7.dp)
+    Surface(
+        onClick = onClick,
+        enabled = enabled,
+        modifier = modifier.height(46.dp),
+        colors = ClickableSurfaceDefaults.colors(
+            containerColor = AulamaTvColors.SurfaceRaised,
+            contentColor = AulamaTvColors.TextPrimary,
+            focusedContainerColor = accent,
+            focusedContentColor = Color(0xFF061014),
+            pressedContainerColor = accent.copy(alpha = 0.82f)
+        ),
+        scale = ClickableSurfaceDefaults.scale(focusedScale = 1.04f),
+        shape = ClickableSurfaceDefaults.shape(shape),
+        border = ClickableSurfaceDefaults.border(
+            border = Border(BorderStroke(1.dp, AulamaTvColors.Outline), shape = shape),
+            focusedBorder = Border(BorderStroke(2.dp, AulamaTvColors.FocusBorder), shape = shape)
+        )
+    ) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(7.dp))
+                Text(
+                    text = localizedText(label),
+                    maxLines = 1,
+                    textAlign = TextAlign.Center,
+                    style = MaterialTheme.typography.titleSmall.copy(
+                        fontSize = 15.sp,
+                        lineHeight = 18.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun DetailPoster(
+    imageUrl: String,
+    title: String,
+    accent: Color,
+    modifier: Modifier = Modifier
+) {
+    val shape = RoundedCornerShape(10.dp)
+    Box(
+        modifier = modifier
+            .size(width = 218.dp, height = 310.dp)
+            .graphicsLayer {
+                shadowElevation = 10.dp.toPx()
+                ambientShadowColor = accent.copy(alpha = 0.38f)
+                spotShadowColor = accent.copy(alpha = 0.62f)
+                this.shape = shape
+                clip = false
+            }
+            .clip(shape)
+            .border(1.5.dp, accent.copy(alpha = 0.7f), shape)
+            .background(Color(0xFF0A0E16))
+    ) {
+        AsyncImage(
+            model = rememberPosterImageRequest(imageUrl = imageUrl, widthPx = 600, heightPx = 860),
+            contentDescription = title,
+            contentScale = ContentScale.Crop,
+            modifier = Modifier.fillMaxSize()
+        )
+    }
+}
+
+@Composable
+private fun compactDetailMetadata(infoList: List<String>, episodeCount: Int): String {
+    val localized = mutableListOf<String>()
+    for (rawInfo in infoList) {
+        for (rawPart in rawInfo.split('•', '・', '|')) {
+            val part = rawPart.trim()
+            if (part.isNotBlank()) localized += localizedText(part)
+        }
+    }
+
+    val preferredKeys = listOf(
+        "地區", "地区", "年份", "年", "類型", "类型", "狀態", "状态"
+    )
+    val selected = localized
+        .filter { part -> preferredKeys.any(part::startsWith) }
+        .map { part ->
+            if (part.startsWith("類型") || part.startsWith("类型")) {
+                val separator = if ('：' in part) '：' else ':'
+                val pieces = part.substringAfter(separator, part)
+                    .split(',', '，', '/', '、')
+                    .map(String::trim)
+                    .filter(String::isNotBlank)
+                    .take(3)
+                if (pieces.isNotEmpty()) pieces.joinToString(" / ") else part
+            } else {
+                part.substringAfter('：', part.substringAfter(':', part)).trim()
+            }
+        }
+        .filter(String::isNotBlank)
+        .distinct()
+        .take(4)
+        .toMutableList()
+
+    if (selected.isEmpty()) {
+        selected += localized.take(3)
+    }
+    if (episodeCount > 0) selected += localizedText("$episodeCount 集")
+    return selected.distinct().joinToString("  •  ")
+}
+
+@Composable
+private fun PlaybackProgressLine(history: VideoHistoryEntity, accent: Color) {
+    val progress = if (history.videoDuration > 0L) {
+        (history.lastPlayTime.toFloat() / history.videoDuration.toFloat()).coerceIn(0f, 1f)
+    } else {
+        0f
+    }
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(
+            text = localizedText(
+                "上次看到 ${history.lastEpisodeName}  " +
+                    "${(history.lastPlayTime / 1000).secondsToMinuteAndSecondText()} / " +
+                    (history.videoDuration / 1000).secondsToMinuteAndSecondText()
+            ),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            style = MaterialTheme.typography.bodySmall.copy(fontSize = 14.sp),
+            color = AulamaTvColors.TextSecondary
+        )
+        Box(
+            modifier = Modifier
+                .width(340.dp)
+                .height(3.dp)
+                .clip(RoundedCornerShape(2.dp))
+                .background(AulamaTvColors.Outline)
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(progress)
+                    .fillMaxHeight()
+                    .background(accent)
+            )
+        }
+    }
+}
+
+@Composable
+private fun EpisodeSection(
+    title: String,
+    episodes: List<AnimePlayListEpisode>,
+    initiallyFocusedIndex: Int,
+    currentEpisodeId: String?,
+    showOrderControl: Boolean,
+    reverseEpisodes: Boolean,
+    orderFocusRequester: FocusRequester?,
+    modifier: Modifier = Modifier,
+    restoreFocusRequester: FocusRequester,
+    restoreFocusEpisodeIndex: Int,
+    onToggleOrder: () -> Unit,
+    onReturnToHero: () -> Unit,
+    onEpisodeFocused: (Int, AnimePlayListEpisode) -> Unit,
+    onEpisodeClick: (Int, AnimePlayListEpisode) -> Unit
+) {
+    if (episodes.isEmpty()) return
+    val consumeRapidDpad = rememberDpadRepeatGate()
+    val rangeSize = when {
+        episodes.size >= 40 -> 20
+        episodes.size >= 20 -> 10
+        else -> episodes.size
+    }
+    val rangeCount = (episodes.size + rangeSize - 1) / rangeSize
+    val safeInitialIndex = initiallyFocusedIndex.coerceIn(0, episodes.lastIndex)
+    val initialRangeIndex = (safeInitialIndex / rangeSize).coerceIn(0, rangeCount - 1)
+    var selectedRangeIndex by remember(episodes, reverseEpisodes) {
+        mutableStateOf(initialRangeIndex)
+    }
+    val rangeStart = selectedRangeIndex * rangeSize
+    val rangeEnd = (rangeStart + rangeSize).coerceAtMost(episodes.size)
+    val entryEpisodeIndex = safeInitialIndex.takeIf { it in rangeStart until rangeEnd } ?: rangeStart
+    val entryEpisodeFocusRequester = remember(
+        episodes,
+        reverseEpisodes,
+        selectedRangeIndex
+    ) { FocusRequester() }
+    val initialVisibleIndex = if (selectedRangeIndex == initialRangeIndex) {
+        safeInitialIndex - rangeStart
+    } else {
+        0
+    }
+    val listState = rememberLazyListState(initialFirstVisibleItemIndex = initialVisibleIndex)
+    LaunchedEffect(episodes, reverseEpisodes, selectedRangeIndex) {
+        listState.scrollToItem(initialVisibleIndex)
+    }
+    val firstRangeLabel = localizedText(episodes[rangeStart].episode)
+    val lastRangeLabel = localizedText(episodes[rangeEnd - 1].episode)
+    val rangeLabel = buildString {
+        append(selectedRangeIndex + 1)
+        append('/')
+        append(rangeCount)
+        append("  ")
+        append(firstRangeLabel)
+        if (firstRangeLabel != lastRangeLabel) {
+            append(" - ")
+            append(lastRangeLabel)
+        }
+    }
     FocusGroup(modifier) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(vertical = 10.dp)
         ) {
-            AulamaSectionHeader(
-                title = stringResource(id = R.string.related_videos),
-                count = videos.size,
-                accent = AulamaTvColors.Pink
-            )
-            Spacer(modifier = Modifier.height(12.dp))
-            TvLazyRow(
-                content = {
-                    items(count = videos.size, key = { videos[it].id }) { videoIndex ->
-                        val video = videos[videoIndex]
-                        VideoCard(
-                            modifier = Modifier
-                                .size(
-                                    dimensionResource(id = R.dimen.poster_width),
-                                    dimensionResource(id = R.dimen.poster_height)
-                                )
-                                .focusProperties { applyUpAndDown(upAndDownFocusProperties) }
-                                .run {
-                                    if (videoIndex == 0) initiallyFocused() else restorableFocus()
-                                },
-                            imageUrl = video.imageUrl,
-                            title = video.title,
-                            subTitle = video.currentEpisode,
-                            focusScale = 1.06f
-                        ) {
-                            DetailActivity.startActivity(context, video.id, sourceId)
-                        }
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(44.dp)
+                    .padding(horizontal = 44.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = title,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    style = MaterialTheme.typography.headlineSmall.copy(
+                        fontSize = 23.sp,
+                        lineHeight = 28.sp,
+                        fontWeight = FontWeight.SemiBold
+                    ),
+                    color = AulamaTvColors.TextPrimary,
+                    modifier = Modifier.weight(1f)
+                )
+                Spacer(modifier = Modifier.width(10.dp))
+                Text(
+                    text = localizedText("${episodes.size} 集"),
+                    style = MaterialTheme.typography.labelLarge.copy(fontSize = 14.sp),
+                    color = AulamaTvColors.TextSecondary
+                )
+                if (rangeCount > 1 || (showOrderControl && orderFocusRequester != null)) {
+                    Spacer(modifier = Modifier.width(16.dp))
+                }
+                if (rangeCount > 1) {
+                    EpisodeRangeControl(
+                        label = rangeLabel,
+                        canGoPrevious = selectedRangeIndex > 0,
+                        canGoNext = selectedRangeIndex < rangeCount - 1,
+                        onPrevious = { selectedRangeIndex -= 1 },
+                        onNext = { selectedRangeIndex += 1 },
+                        onClick = {
+                            selectedRangeIndex = (selectedRangeIndex + 1) % rangeCount
+                        },
+                        modifier = Modifier
+                            .focusProperties { down = entryEpisodeFocusRequester }
+                            .restorableFocus()
+                    )
+                    if (showOrderControl && orderFocusRequester != null) {
+                        Spacer(modifier = Modifier.width(10.dp))
                     }
-                },
-                contentPadding = PaddingValues(horizontal = 18.dp, vertical = 4.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            )
-        }
-    }
-}
-
-@OptIn(ExperimentalTvFoundationApi::class)
-@Composable
-fun PlayListRow(
-    episodes: List<AnimePlayListEpisode>,
-    modifier: Modifier,
-    title: @Composable () -> Unit,
-    listState: TvLazyListState,
-    restoreFocusRequester: FocusRequester,
-    restoreFocusEpIndex: Int,
-    upAndDownFocusProperties: UpAndDownFocusProperties = UpAndDownFocusProperties.DEFAULT,
-    initiallyFocusedIndex: Int = 0,
-    onEpisodeFocused: (Int, AnimePlayListEpisode) -> Unit,
-    onEpisodeClick: (Int, AnimePlayListEpisode) -> Unit,
-) {
-    val consumeRapidDpad = rememberDpadRepeatGate()
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 18.dp, vertical = 10.dp)
-    ) {
-        title()
-        Spacer(modifier = Modifier.height(12.dp))
-        FocusGroup(modifier) {
-            TvLazyRow(
+                }
+                if (showOrderControl && orderFocusRequester != null) {
+                    OrderControl(
+                        reverse = reverseEpisodes,
+                        onClick = onToggleOrder,
+                        modifier = Modifier
+                            .focusRequester(orderFocusRequester)
+                            .focusProperties { down = entryEpisodeFocusRequester }
+                            .restorableFocus()
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(7.dp))
+            LazyRow(
                 state = listState,
-                pivotOffsets = PivotOffsets(0f),
-                modifier = Modifier.onPreviewKeyEvent {
-                    if (consumeRapidDpad(it)) return@onPreviewKeyEvent true
+                modifier = Modifier.onPreviewKeyEvent { event ->
+                    if (event.type == KeyEventType.KeyDown && event.key == Key.DirectionUp) {
+                        onReturnToHero()
+                        return@onPreviewKeyEvent true
+                    }
+                    if (consumeRapidDpad(event)) return@onPreviewKeyEvent true
                     false
                 },
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                content = {
-                    items(count = episodes.size, key = { episodes[it].episodeId }) { epIndex ->
-                        val ep = episodes[epIndex]
-                        val episodeModifier =
-                            if (epIndex == initiallyFocusedIndex) {
-                                Modifier.initiallyFocused()
-                            } else Modifier.restorableFocus()
-                        VideoEpisode(
-                            modifier = episodeModifier
-                                .run {
-                                    if (restoreFocusEpIndex == epIndex) {
-                                        focusRequester(restoreFocusRequester)
-                                    } else {
-                                        this
-                                    }
-                                }
-                                .focusProperties {
-                                    applyUpAndDown(upAndDownFocusProperties)
-                                }
-                                .onFocusChanged {
-                                    if (it.hasFocus || it.isFocused) {
-                                        onEpisodeFocused(epIndex, ep)
-                                    }
-                                },
-                            tagName = ep.episode
-                        ) {
-                            onEpisodeClick(epIndex, ep)
-                        }
-                    }
-                },
-                contentPadding = PaddingValues(horizontal = 18.dp, vertical = 2.dp)
-            )
-        }
-    }
-}
-
-
-@OptIn(
-    ExperimentalTvMaterial3Api::class, ExperimentalFoundationApi::class,
-    ExperimentalTvFoundationApi::class
-)
-@Composable
-fun VideoInfoRow(
-    videoDetail: AnimeDetailPageData,
-    modifier: Modifier,
-    upAndDownFocusProperties: UpAndDownFocusProperties = UpAndDownFocusProperties.DEFAULT,
-    playHistory: VideoHistoryEntity? = null,
-    onCoverClick: () -> Unit = {}
-) {
-    var showDescDialog by remember {
-        mutableStateOf(false)
-    }
-    val infoRows = remember(videoDetail.infoList) {
-        videoDetail.infoList
-            .map(String::trim)
-            .filter { info ->
-                info.isNotBlank() && !info.matches(Regex(".*[：:]\\s*$"))
-            }
-            .chunked(2)
-    }
-
-    FocusGroup(modifier) {
-        Row(
-            Modifier
-                .fillMaxWidth()
-                .background(AulamaTvColors.Surface)
-                .padding(20.dp)
-                .heightIn(min = dimensionResource(id = R.dimen.poster_height) * 1.3f + 16.dp)
-        ) {
-            CompactCard(
-                onClick = {
-                    onCoverClick()
-                },
-                image = {
-                    AsyncImage(
-                        model = rememberPosterImageRequest(
-                            imageUrl = videoDetail.imageUrl,
-                            widthPx = 560,
-                            heightPx = 760
-                        ),
-                        contentDescription = videoDetail.animeName,
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier.fillMaxSize()
-                    )
-                },
-                title = {},
-                scale = CardDefaults.scale(focusedScale = AulamaFocusScale),
-                shape = CardDefaults.shape(shape = AulamaCardShape),
-                modifier = Modifier
-                    .initiallyFocused()
-                    .size(
-                        dimensionResource(id = R.dimen.poster_width) * 1.3f,
-                        dimensionResource(id = R.dimen.poster_height) * 1.3f
-                    )
-                    .border(1.dp, AulamaTvColors.Outline, AulamaCardShape)
-                    .focusProperties { applyUpAndDown(upAndDownFocusProperties) }
-            )
-            Spacer(modifier = Modifier.width(15.dp))
-            Column(
-                modifier = Modifier
-                    .weight(1f),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
+                contentPadding = PaddingValues(horizontal = 44.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(9.dp)
             ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.Top
-                ) {
-                    Text(
-                        text = videoDetail.animeName,
-                        style = MaterialTheme.typography.headlineLarge.copy(fontWeight = FontWeight.Bold),
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                        color = AulamaTvColors.TextPrimary,
-                        modifier = Modifier.weight(1f)
-                    )
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Image(
-                        painter = painterResource(R.drawable.aulama_anime_wordmark),
-                        contentDescription = stringResource(R.string.app_name),
-                        modifier = Modifier.size(width = 150.dp, height = 62.dp)
-                    )
-                }
-                if (playHistory != null) {
-                    Box(
-                        modifier = Modifier
-                            .clip(AulamaCardShape)
-                            .background(AulamaTvColors.Cyan.copy(alpha = 0.14f))
-                            .border(
-                                width = 1.dp,
-                                color = AulamaTvColors.Cyan.copy(alpha = 0.4f),
-                                shape = AulamaCardShape
-                            )
-                            .padding(horizontal = 12.dp, vertical = 7.dp)
-                    ) {
-                        Text(
-                            text = stringResource(
-                                R.string.last_played_template,
-                                playHistory.lastEpisodeName,
-                                (playHistory.lastPlayTime / 1000).secondsToMinuteAndSecondText(),
-                                (playHistory.videoDuration / 1000).secondsToMinuteAndSecondText()
-                            ),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = AulamaTvColors.TextPrimary
-                        )
-                    }
-                }
-
-                ProvideTextStyle(value = MaterialTheme.typography.bodySmall) {
-                    Column(
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        infoRows.forEach { row ->
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                row.forEach { info ->
-                                    Box(
-                                        modifier = Modifier
-                                            .weight(1f)
-                                            .clip(AulamaCardShape)
-                                            .background(AulamaTvColors.SurfaceRaised)
-                                            .border(1.dp, AulamaTvColors.Outline, AulamaCardShape)
-                                            .padding(horizontal = 12.dp, vertical = 10.dp)
-                                    ) {
-                                        Text(
-                                            text = info,
-                                            maxLines = 3,
-                                            overflow = TextOverflow.Ellipsis,
-                                            color = AulamaTvColors.TextSecondary
-                                        )
-                                    }
-                                }
-                                if (row.size == 1) {
-                                    Spacer(modifier = Modifier.weight(1f))
-                                }
+                items(
+                    count = rangeEnd - rangeStart,
+                    key = { episodes[rangeStart + it].episodeId }
+                ) { visibleEpisodeIndex ->
+                    val episodeIndex = rangeStart + visibleEpisodeIndex
+                    val episode = episodes[episodeIndex]
+                    var episodeModifier = Modifier
+                        .focusProperties { applyUpAndDown(UpAndDownFocusProperties.DEFAULT) }
+                        .onFocusChanged {
+                            if (it.isFocused || it.hasFocus) {
+                                onEpisodeFocused(episodeIndex, episode)
                             }
                         }
-                        if (videoDetail.description.isNotEmpty()) {
-                            Surface(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .focusProperties {
-                                        applyUpAndDown(
-                                            upAndDownFocusProperties
-                                        )
-                                    }
-                                    .restorableFocus(),
-                                onClick = { showDescDialog = true },
-                                scale = ClickableSurfaceDefaults.scale(focusedScale = AulamaFocusScale),
-                                colors = ClickableSurfaceDefaults.colors(
-                                    containerColor = AulamaTvColors.SurfaceRaised,
-                                    focusedContainerColor = Color(0xFF173A40)
-                                ),
-                                border = ClickableSurfaceDefaults.border(
-                                    border = Border(
-                                        BorderStroke(1.dp, AulamaTvColors.Outline),
-                                        shape = AulamaCardShape
-                                    ),
-                                    focusedBorder = Border(
-                                        BorderStroke(
-                                            2.dp, MaterialTheme.colorScheme.border
-                                        ),
-                                        shape = AulamaCardShape
-                                    )
-                                ),
-                                shape = ClickableSurfaceDefaults.shape(AulamaCardShape)
-                            ) {
-                                Column(
-                                    modifier = Modifier.padding(
-                                        horizontal = 12.dp, vertical = 12.dp
-                                    )
-                                ) {
-                                    Text(
-                                        text = stringResource(R.string.video_description),
-                                        style = MaterialTheme.typography.labelLarge,
-                                        color = AulamaTvColors.Cyan
-                                    )
-                                    Spacer(modifier = Modifier.height(4.dp))
-                                    Text(
-                                        text = videoDetail.description,
-                                        maxLines = 3,
-                                        overflow = TextOverflow.Ellipsis,
-                                        color = Color.White
-                                    )
-                                }
-                            }
-                        }
+                    episodeModifier = if (episodeIndex == entryEpisodeIndex) {
+                        episodeModifier
+                            .focusRequester(entryEpisodeFocusRequester)
+                            .initiallyFocused()
+                    } else {
+                        episodeModifier.restorableFocus()
                     }
-                }
-
-            }
-        }
-
-    }
-
-    // 在Dialog中显示视频简介
-    if (showDescDialog) {
-        val scrollState = rememberScrollState()
-        val coroutineScope = rememberCoroutineScope()
-        val longDescFocusRequester = remember {
-            FocusRequester()
-        }
-        AlertDialog(onDismissRequest = { showDescDialog = false },
-            confirmButton = {},
-            properties = DialogProperties(usePlatformDefaultWidth = false),
-            modifier = Modifier.fillMaxWidth(0.6f),
-            shape = AulamaCardShape,
-            containerColor = AulamaTvColors.Surface,
-            title = {
-                Text(
-                    text = stringResource(R.string.video_description),
-                    style = MaterialTheme.typography.headlineMedium,
-                    modifier = Modifier.padding(bottom = 10.dp)
-                )
-            },
-            text = {
-                Text(text = videoDetail.description,
-                    modifier = Modifier
-                        .verticalScroll(scrollState)
-                        .focusRequester(longDescFocusRequester)
-                        .focusable()
-                        .onPreviewKeyEvent {
-                            val step = 70f
-                            when (it.key) {
-                                Key.DirectionUp -> {
-                                    if (it.type == KeyEventType.KeyDown) {
-                                        coroutineScope.launch {
-                                            scrollState.animateScrollBy(-step)
-                                        }
-                                        true
-                                    } else {
-                                        false
-                                    }
-                                }
-
-                                Key.DirectionDown -> {
-                                    if (it.type == KeyEventType.KeyDown) {
-                                        coroutineScope.launch {
-                                            scrollState.animateScrollBy(step)
-                                        }
-                                        true
-                                    } else {
-                                        false
-                                    }
-
-                                }
-
-                                else -> false
-                            }
-
-                        })
-                LaunchedEffect(Unit) {
-                    longDescFocusRequester.requestFocus()
+                    if (restoreFocusEpisodeIndex == episodeIndex) {
+                        episodeModifier = episodeModifier.focusRequester(restoreFocusRequester)
+                    }
+                    EpisodeTile(
+                        label = episode.episode,
+                        isCurrent = episode.episodeId == currentEpisodeId,
+                        modifier = episodeModifier,
+                        onClick = { onEpisodeClick(episodeIndex, episode) }
+                    )
                 }
             }
-
-        )
-
+        }
     }
-
 }
 
-@OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
-fun VideoEpisode(tagName: String, modifier: Modifier = Modifier, onClick: () -> Unit = {}) {
-    var focused by remember {
-        mutableStateOf(false)
-    }
+private fun EpisodeRangeControl(
+    label: String,
+    canGoPrevious: Boolean,
+    canGoNext: Boolean,
+    onPrevious: () -> Unit,
+    onNext: () -> Unit,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val shape = RoundedCornerShape(6.dp)
     Surface(
+        onClick = onClick,
         modifier = modifier
-            .onFocusChanged {
-                focused = it.isFocused || it.hasFocus
-            }
-            .run {
-                if (focused) {
-                    border(
-                        2.dp,
-                        AulamaTvColors.FocusBorder,
-                        AulamaCardShape
-                    )
-                } else {
-                    border(1.dp, AulamaTvColors.Outline, AulamaCardShape)
+            .height(42.dp)
+            .widthIn(min = 190.dp, max = 252.dp)
+            .onPreviewKeyEvent { event ->
+                if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                when (event.key) {
+                    Key.DirectionLeft -> {
+                        if (canGoPrevious) onPrevious() else return@onPreviewKeyEvent false
+                        true
+                    }
+
+                    Key.DirectionRight -> {
+                        if (canGoNext) onNext() else return@onPreviewKeyEvent false
+                        true
+                    }
+
+                    else -> false
                 }
             },
         colors = ClickableSurfaceDefaults.colors(
-            containerColor = AulamaTvColors.SurfaceRaised,
-            focusedContainerColor = Color(0xFF1D555D),
-            pressedContainerColor = Color(0xFF174249)
+            containerColor = Color.Transparent,
+            focusedContainerColor = AulamaTvColors.Cyan,
+            focusedContentColor = Color(0xFF041014),
+            pressedContainerColor = AulamaTvColors.Cyan.copy(alpha = 0.82f)
         ),
-        shape = ClickableSurfaceDefaults.shape(shape = AulamaCardShape),
-        border = ClickableSurfaceDefaults.border(),
         scale = ClickableSurfaceDefaults.scale(focusedScale = AulamaFocusScale),
-        onClick = onClick
-    ) {
-        Text(
-            modifier = Modifier
-                .widthIn(min = 92.dp)
-                .padding(horizontal = 14.dp, vertical = 8.dp),
-            text = tagName,
-            color = Color.White,
-            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold)
+        shape = ClickableSurfaceDefaults.shape(shape),
+        border = ClickableSurfaceDefaults.border(
+            border = Border(BorderStroke(1.dp, AulamaTvColors.Outline), shape = shape),
+            focusedBorder = Border(BorderStroke(2.dp, AulamaTvColors.FocusBorder), shape = shape)
         )
+    ) {
+        Row(
+            modifier = Modifier
+                .height(42.dp)
+                .padding(horizontal = 10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = Icons.Default.ChevronLeft,
+                contentDescription = localizedText("上一組"),
+                modifier = Modifier
+                    .size(18.dp)
+                    .graphicsLayer { alpha = if (canGoPrevious) 1f else 0.32f }
+            )
+            Text(
+                text = label,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                textAlign = TextAlign.Center,
+                style = MaterialTheme.typography.titleSmall.copy(
+                    fontSize = 14.sp,
+                    lineHeight = 18.sp,
+                    fontWeight = FontWeight.SemiBold
+                ),
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(horizontal = 6.dp)
+            )
+            Icon(
+                imageVector = Icons.Default.ChevronRight,
+                contentDescription = localizedText("下一組"),
+                modifier = Modifier
+                    .size(18.dp)
+                    .graphicsLayer { alpha = if (canGoNext) 1f else 0.32f }
+            )
+        }
     }
+}
+
+@Composable
+private fun OrderControl(
+    reverse: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val shape = RoundedCornerShape(6.dp)
+    Surface(
+        onClick = onClick,
+        modifier = modifier.height(42.dp),
+        colors = ClickableSurfaceDefaults.colors(
+            containerColor = Color.Transparent,
+            focusedContainerColor = AulamaTvColors.Cyan,
+            focusedContentColor = Color(0xFF041014),
+            pressedContainerColor = AulamaTvColors.Cyan.copy(alpha = 0.82f)
+        ),
+        scale = ClickableSurfaceDefaults.scale(focusedScale = AulamaFocusScale),
+        shape = ClickableSurfaceDefaults.shape(shape),
+        border = ClickableSurfaceDefaults.border(
+            border = Border(BorderStroke(1.dp, AulamaTvColors.Outline), shape = shape),
+            focusedBorder = Border(BorderStroke(2.dp, AulamaTvColors.FocusBorder), shape = shape)
+        )
+    ) {
+        Row(
+            modifier = Modifier
+                .height(42.dp)
+                .padding(horizontal = 13.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center
+        ) {
+            Icon(
+                imageVector = Icons.Default.SwapVert,
+                contentDescription = null,
+                modifier = Modifier.size(19.dp)
+            )
+            Spacer(modifier = Modifier.width(7.dp))
+            Text(
+                text = localizedText(if (reverse) "倒序" else "正序"),
+                maxLines = 1,
+                style = MaterialTheme.typography.titleSmall.copy(
+                    fontSize = 15.sp,
+                    lineHeight = 19.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+            )
+        }
+    }
+}
+
+@Composable
+private fun EpisodeTile(
+    label: String,
+    isCurrent: Boolean,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
+    val shape = RoundedCornerShape(5.dp)
+    var focused by remember { mutableStateOf(false) }
+    Surface(
+        onClick = onClick,
+        modifier = modifier
+            .height(50.dp)
+            .widthIn(min = 100.dp, max = 174.dp)
+            .graphicsLayer {
+                shadowElevation = if (focused) 9.dp.toPx() else 0f
+                ambientShadowColor = AulamaTvColors.Cyan.copy(alpha = 0.5f)
+                spotShadowColor = AulamaTvColors.Cyan.copy(alpha = 0.8f)
+            }
+            .onFocusChanged { focused = it.isFocused || it.hasFocus },
+        colors = ClickableSurfaceDefaults.colors(
+            containerColor = Color(0x520A0E16),
+            focusedContainerColor = Color(0xFF163B42),
+            pressedContainerColor = Color(0xFF0F2D33)
+        ),
+        scale = ClickableSurfaceDefaults.scale(focusedScale = 1.07f),
+        shape = ClickableSurfaceDefaults.shape(shape),
+        border = ClickableSurfaceDefaults.border(
+            border = Border(
+                BorderStroke(1.dp, AulamaTvColors.Outline.copy(alpha = 0.72f)),
+                shape = shape
+            ),
+            focusedBorder = Border(BorderStroke(2.5.dp, AulamaTvColors.FocusBorder), shape = shape)
+        )
+    ) {
+        Box(
+            modifier = Modifier
+                .height(50.dp)
+                .padding(horizontal = 15.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = localizedText(label),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                style = MaterialTheme.typography.titleSmall.copy(
+                    fontSize = 15.sp,
+                    lineHeight = 19.sp,
+                    fontWeight = FontWeight.SemiBold
+                ),
+                color = AulamaTvColors.TextPrimary
+            )
+            if (isCurrent) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(bottom = 5.dp)
+                        .size(width = 24.dp, height = 3.dp)
+                        .background(AulamaTvColors.Cyan, RoundedCornerShape(2.dp))
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun RelatedAnimeSection(
+    videos: List<AnimeData>,
+    sourceId: String,
+    modifier: Modifier = Modifier
+) {
+    val context = LocalContext.current
+    FocusGroup(modifier) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 14.dp, bottom = 8.dp)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 44.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = stringResource(R.string.related_videos),
+                    style = MaterialTheme.typography.headlineSmall.copy(
+                        fontSize = 23.sp,
+                        lineHeight = 28.sp,
+                        fontWeight = FontWeight.SemiBold
+                    ),
+                    color = AulamaTvColors.TextPrimary
+                )
+                Spacer(modifier = Modifier.width(10.dp))
+                Text(
+                    text = localizedText("${videos.size} 套"),
+                    style = MaterialTheme.typography.labelLarge.copy(fontSize = 14.sp),
+                    color = AulamaTvColors.TextSecondary
+                )
+            }
+            Spacer(modifier = Modifier.height(12.dp))
+            LazyRow(
+                contentPadding = PaddingValues(horizontal = 44.dp, vertical = 10.dp),
+                horizontalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                items(count = videos.size, key = { videos[it].id }) { videoIndex ->
+                    val video = videos[videoIndex]
+                    VideoCard(
+                        imageUrl = video.imageUrl,
+                        title = video.title,
+                        subTitle = video.currentEpisode,
+                        focusScale = 1.07f,
+                        modifier = Modifier
+                            .size(width = 152.dp, height = 210.dp)
+                            .run {
+                                if (videoIndex == 0) initiallyFocused() else restorableFocus()
+                            },
+                        onClick = {
+                            DetailActivity.startActivity(context, video.id, sourceId)
+                        }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DescriptionDialog(
+    title: String,
+    description: String,
+    accent: Color,
+    onDismiss: () -> Unit
+) {
+    val scrollState = rememberScrollState()
+    val scope = rememberCoroutineScope()
+    val focusRequester = remember { FocusRequester() }
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color(0xD905070C)),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth(0.72f)
+                    .heightIn(max = 420.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(AulamaTvColors.Surface)
+                    .background(
+                        Brush.horizontalGradient(
+                            listOf(accent.copy(alpha = 0.12f), Color.Transparent)
+                        )
+                    )
+                    .padding(horizontal = 32.dp, vertical = 26.dp)
+            ) {
+                Text(
+                    text = title,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    style = MaterialTheme.typography.headlineMedium.copy(
+                        fontSize = 29.sp,
+                        lineHeight = 35.sp,
+                        fontWeight = FontWeight.Bold
+                    ),
+                    color = accent
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(
+                    text = description,
+                    style = MaterialTheme.typography.bodyLarge.copy(
+                        fontSize = 18.sp,
+                        lineHeight = 27.sp
+                    ),
+                    color = AulamaTvColors.TextPrimary,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .verticalScroll(scrollState)
+                        .focusRequester(focusRequester)
+                        .focusable()
+                        .onPreviewKeyEvent { event ->
+                            if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                            val offset = when (event.key) {
+                                Key.DirectionUp -> -82f
+                                Key.DirectionDown -> 82f
+                                else -> return@onPreviewKeyEvent false
+                            }
+                            scope.launch { scrollState.animateScrollBy(offset) }
+                            true
+                        }
+                )
+            }
+        }
+        LaunchedEffect(Unit) { focusRequester.requestFocus() }
+    }
+}
+
+private fun openPlayback(
+    context: android.content.Context,
+    animeName: String,
+    detail: AnimeDetailPageData,
+    playlist: AnimePlayList,
+    episodeIndex: Int,
+    sourceId: String
+) {
+    PlaybackActivity.startActivity(
+        context,
+        NavigateToPlayerArg(
+            animeName = animeName,
+            animeId = detail.animeId,
+            coverUrl = detail.imageUrl,
+            playIndex = episodeIndex,
+            playlist = playlist.episodeList,
+            sourceId = sourceId
+        )
+    )
 }
 
 private data class PlayListWrapper(
@@ -795,8 +1281,8 @@ private data class PlayListWrapper(
 )
 
 private data class DetailPageRowFocusRequesters(
-    val infoRow: FocusRequester,
-    val playListReverseButton: FocusRequester?,
-    val playListRows: List<FocusRequester>,
-    val otherAnimeRow: FocusRequester?
+    val hero: FocusRequester,
+    val order: FocusRequester?,
+    val playlists: List<FocusRequester>,
+    val related: FocusRequester?
 )

@@ -84,7 +84,19 @@ object DeviceAuthParser {
             name = name,
             role = account.string("role").ifBlank {
                 if (account.get("is_admin")?.asBoolean == true) "管理員" else "會員"
-            }
+            },
+            email = account.string("email"),
+            photoUrl = listOf(
+                "photo_url",
+                "photoURL",
+                "photoUrl",
+                "picture",
+                "avatar",
+                "avatar_url",
+                "image"
+            )
+                .firstNotNullOfOrNull { key -> account.string(key).takeIf(String::isNotBlank) }
+                .orEmpty()
         )
     }
 

@@ -4,13 +4,16 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -21,17 +24,18 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.key.KeyEvent
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.tv.material3.Border
-import androidx.tv.material3.ClickableSurfaceDefaults
+import androidx.compose.ui.unit.sp
 import androidx.tv.material3.ExperimentalTvMaterial3Api
 import androidx.tv.material3.MaterialTheme
-import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
 import coil.compose.AsyncImage
+import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalTvMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -44,32 +48,50 @@ fun VideoCard(
     focusScale: Float = AulamaFocusScale,
     onKeyEvent: ((KeyEvent) -> Boolean)? = null,
     onLongClick: (() -> Unit)? = null,
+    onFocused: (() -> Unit)? = null,
     onClick: () -> Unit = {},
 ) {
+    val displayTitle = localizedText(title)
+    val displaySubtitle = localizedText(subTitle)
+    val displaySourceName = localizedText(sourceName.toDisplayLineName())
     var focused by remember {
         mutableStateOf(false)
     }
+    var focusSettled by remember { mutableStateOf(false) }
     val posterRequest = rememberPosterImageRequest(imageUrl = imageUrl)
-    Surface(
+    val artworkAccent = rememberArtworkAccent(imageUrl, enabled = focusSettled)
+    val cardScale = if (focused) focusScale else 1f
+    LaunchedEffect(focused) {
+        focusSettled = false
+        if (focused) {
+            onFocused?.invoke()
+            delay(220)
+            focusSettled = true
+        }
+    }
+    Box(
         modifier = modifier
+            .graphicsLayer {
+                scaleX = cardScale
+                scaleY = cardScale
+                shadowElevation = if (focused && focusSettled) 8.dp.toPx() else 0f
+                shape = AulamaCardShape
+                clip = false
+                ambientShadowColor = artworkAccent.copy(alpha = 0.54f)
+                spotShadowColor = artworkAccent.copy(alpha = 0.82f)
+            }
             .onFocusChanged {
                 focused = it.isFocused || it.hasFocus
             }
-            .customClick(onClick = onClick, onLongClick = onLongClick, onKeyEvent = onKeyEvent),
-        onClick = {},
-        colors = ClickableSurfaceDefaults.colors(
-            containerColor = Color.Transparent,
-            focusedContainerColor = Color.Transparent,
-            pressedContainerColor = Color.Transparent
-        ),
-        scale = ClickableSurfaceDefaults.scale(focusedScale = focusScale),
-        shape = ClickableSurfaceDefaults.shape(shape = AulamaCardShape),
-        border = ClickableSurfaceDefaults.border(
-            border = Border(BorderStroke(1.dp, AulamaTvColors.Outline.copy(alpha = 0.72f))),
-            focusedBorder = Border(
-                BorderStroke(2.dp, AulamaTvColors.FocusBorder)
+            .focusable()
+            .customClick(onClick = onClick, onLongClick = onLongClick, onKeyEvent = onKeyEvent)
+            .border(
+                border = BorderStroke(
+                    width = if (focused) 2.5.dp else 1.dp,
+                    color = if (focused) artworkAccent else AulamaTvColors.Outline.copy(alpha = 0.72f)
+                ),
+                shape = AulamaCardShape
             )
-        )
     ) {
         Box(
             modifier = Modifier
@@ -78,7 +100,7 @@ fun VideoCard(
         ) {
             AsyncImage(
                 model = posterRequest,
-                contentDescription = title,
+                contentDescription = displayTitle,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize()
             )
@@ -96,45 +118,51 @@ fun VideoCard(
                         )
                     )
             )
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .border(
-                        border = BorderStroke(
-                            if (focused) 2.dp else 1.dp,
-                            if (focused) AulamaTvColors.FocusBorder else AulamaTvColors.Outline
-                        ),
-                        shape = AulamaCardShape
-                    )
-            )
+            if (displaySubtitle.isNotEmpty()) {
+                Text(
+                    text = displaySubtitle,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    style = MaterialTheme.typography.labelMedium.copy(
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold
+                    ),
+                    color = Color.White,
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(9.dp)
+                        .wrapContentWidth()
+                        .clip(RoundedCornerShape(5.dp))
+                        .background(Color(0xCC080B12))
+                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                )
+            }
             Column(
                 modifier = Modifier
                     .align(Alignment.BottomStart)
                     .fillMaxWidth()
-                    .padding(start = 12.dp, end = 12.dp, bottom = 12.dp)
+                    .padding(start = 12.dp, end = 12.dp, bottom = 11.dp)
             ) {
-                if (sourceName.isNotEmpty()) {
+                if (displaySourceName.isNotEmpty()) {
                     Text(
-                        text = sourceName.toDisplayLineName(),
+                        text = displaySourceName,
                         maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                         style = MaterialTheme.typography.labelSmall,
-                        color = AulamaTvColors.Cyan
+                        color = artworkAccent
                     )
                 }
                 Text(
-                    text = title,
-                    maxLines = 1,
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+                    text = displayTitle,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontSize = 16.sp,
+                        lineHeight = 19.sp,
+                        fontWeight = FontWeight.SemiBold
+                    ),
                     color = AulamaTvColors.TextPrimary
                 )
-                if (subTitle.isNotEmpty()) {
-                    Text(
-                        text = subTitle,
-                        style = MaterialTheme.typography.titleSmall,
-                        maxLines = 1,
-                        color = AulamaTvColors.TextSecondary
-                    )
-                }
             }
         }
     }
