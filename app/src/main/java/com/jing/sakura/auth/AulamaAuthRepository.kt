@@ -187,6 +187,8 @@ class AulamaAuthRepository(
         }
         val body = JsonObject().apply {
             add("capabilities", capabilities)
+            addProperty("deviceName", "${Build.MANUFACTURER} ${Build.MODEL}".trim())
+            addProperty("appVersion", BuildConfig.VERSION_NAME)
         }.toString().toRequestBody(JSON_MEDIA_TYPE)
         val request = authenticatedRequest("$API_BASE/device/heartbeat", session).post(body).build()
         return client.executeWithCoroutine(request).use { response ->
