@@ -298,6 +298,7 @@ class HomeViewModel(
         selectHistoryEpisode(
             detail = detail,
             episodeId = remoteHistory?.episodeId,
+            episodeIndex = remoteHistory?.episodeIndex,
             positionMs = remoteHistory?.positionMs
         )?.let { return it }
 
@@ -305,6 +306,7 @@ class HomeViewModel(
         selectHistoryEpisode(
             detail = detail,
             episodeId = localHistory?.episodeId,
+            episodeIndex = null,
             positionMs = localHistory?.lastPlayTime
         )?.let { return it }
 
@@ -325,21 +327,37 @@ class HomeViewModel(
     private fun selectHistoryEpisode(
         detail: AnimeDetailPageData,
         episodeId: String?,
+        episodeIndex: Int?,
         positionMs: Long?
     ): PreviewEpisodeSelection? {
-        if (episodeId.isNullOrBlank()) return null
-        detail.playLists.forEach { playlist ->
-            val playIndex = playlist.episodeList.indexOfFirst { it.episodeId == episodeId }
-            if (playIndex >= 0) {
-                return PreviewEpisodeSelection(
-                    playlist = playlist.episodeList,
-                    playIndex = playIndex,
-                    episode = playlist.episodeList[playIndex],
-                    startPositionMs = positionMs?.coerceAtLeast(0L) ?: 0L
-                )
+        if (!episodeId.isNullOrBlank()) {
+            detail.playLists.forEach { playlist ->
+                val playIndex = playlist.episodeList.indexOfFirst { it.episodeId == episodeId }
+                if (playIndex >= 0) {
+                    return PreviewEpisodeSelection(
+                        playlist = playlist.episodeList,
+                        playIndex = playIndex,
+                        episode = playlist.episodeList[playIndex],
+                        startPositionMs = positionMs?.coerceAtLeast(0L) ?: 0L
+                    )
+                }
             }
         }
-        return null
+        val fallbackPlaylist = detail.playLists
+            .getOrNull(detail.defaultPlayListIndex)
+            ?.takeIf { it.episodeList.isNotEmpty() }
+            ?: detail.playLists.firstOrNull { it.defaultPlayList && it.episodeList.isNotEmpty() }
+            ?: detail.playLists.firstOrNull { it.episodeList.isNotEmpty() }
+            ?: return null
+        val fallbackIndex = episodeIndex
+            ?.coerceIn(0, fallbackPlaylist.episodeList.lastIndex)
+            ?: return null
+        return PreviewEpisodeSelection(
+            playlist = fallbackPlaylist.episodeList,
+            playIndex = fallbackIndex,
+            episode = fallbackPlaylist.episodeList[fallbackIndex],
+            startPositionMs = positionMs?.coerceAtLeast(0L) ?: 0L
+        )
     }
 
     private suspend fun loadSyncedContent() {
@@ -356,11 +374,14 @@ class HomeViewModel(
                 replaceRemoteHeroPreviewHistory(
                     payload.historyItems.mapIndexed { index, history ->
                         HeroPreviewHistory(
-                            animeId = history.anime.id,
-                            sourceId = history.anime.sourceId,
+                            animeId = history.animeId.ifBlank { history.anime.id },
+                            sourceId = history.sourceTypeId.ifBlank { history.anime.sourceId },
                             episodeId = history.episodeId,
+                            episodeIndex = history.episodeIndex,
                             positionMs = history.currentTimeSeconds.toPositionMs(),
-                            updatedAtMs = (payload.historyItems.size - index).toLong()
+                            updatedAtMs = history.updatedAtEpochMs.coerceAtLeast(
+                                (payload.historyItems.size - index).toLong()
+                            )
                         )
                     }
                 )

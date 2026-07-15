@@ -13,6 +13,7 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import kotlin.math.roundToLong
 
 object RemotePlaybackCoordinator {
     private const val COMMAND_POLL_INTERVAL_MS = 4_000L
@@ -119,8 +120,8 @@ object RemotePlaybackCoordinator {
         command: RemotePlaybackCommand.OpenAnime,
         repository: WebPageRepository
     ): NavigateToPlayerArg {
-        repository.requireAnimationSource(command.sourceId)
-        val detail = repository.fetchDetailPage(command.animeId, command.sourceId)
+        val sourceId = repository.resolveAnimationSourceId(command.sourceId)
+        val detail = repository.fetchDetailPage(command.animeId, sourceId)
         val playlistIndex = detail.defaultPlayListIndex
             .takeIf { it in detail.playLists.indices }
             ?: detail.playLists.indexOfFirst { it.defaultPlayList }.takeIf { it >= 0 }
@@ -137,7 +138,11 @@ object RemotePlaybackCoordinator {
             coverUrl = detail.imageUrl,
             playIndex = command.episodeIndex,
             playlist = playlist,
-            sourceId = command.sourceId
+            sourceId = sourceId,
+            resumePositionMs = command.currentTimeSeconds
+                ?.times(1_000.0)
+                ?.roundToLong()
+                ?: NavigateToPlayerArg.NO_REMOTE_RESUME_POSITION
         )
     }
 

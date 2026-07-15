@@ -18,32 +18,23 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.lifecycleScope
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.repeatOnLifecycle
 import androidx.tv.material3.ExperimentalTvMaterial3Api
 import androidx.tv.material3.MaterialTheme
 import com.jing.sakura.R
 import com.jing.sakura.auth.AuthUiState
 import com.jing.sakura.auth.AuthViewModel
-import com.jing.sakura.auth.AulamaAuthRepository
 import com.jing.sakura.compose.screen.DeviceLoginScreen
 import com.jing.sakura.compose.screen.HomeScreen
 import com.jing.sakura.compose.theme.SakuraTheme
-import com.jing.sakura.player.PlaybackActivity
-import com.jing.sakura.remote.RemotePlaybackCoordinator
-import com.jing.sakura.repo.WebPageRepository
 import com.jing.sakura.update.TvUpdate
 import com.jing.sakura.update.TvUpdateDialog
 import com.jing.sakura.update.TvUpdateManager
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
-import org.koin.android.ext.android.inject
 import org.koin.androidx.viewmodel.ext.android.viewModel
 
 
 class MainActivity : ComponentActivity() {
-    private val authRepository: AulamaAuthRepository by inject()
-    private val webPageRepository: WebPageRepository by inject()
     private lateinit var updateManager: TvUpdateManager
     private val availableUpdate = mutableStateOf<TvUpdate?>(null)
     private val isCheckingForUpdate = mutableStateOf(false)
@@ -109,18 +100,6 @@ class MainActivity : ComponentActivity() {
         }
         lifecycleScope.launch {
             availableUpdate.value = runCatching { updateManager.checkForUpdate() }.getOrNull()
-        }
-        lifecycleScope.launch {
-            repeatOnLifecycle(Lifecycle.State.STARTED) {
-                RemotePlaybackCoordinator.runWhileStarted(
-                    owner = this@MainActivity,
-                    authRepository = authRepository,
-                    webPageRepository = webPageRepository
-                ) { playerArg ->
-                    PlaybackActivity.startActivity(this@MainActivity, playerArg)
-                    true
-                }
-            }
         }
     }
 

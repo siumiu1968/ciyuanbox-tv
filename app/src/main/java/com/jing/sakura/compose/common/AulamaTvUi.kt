@@ -2,6 +2,7 @@
 
 package com.jing.sakura.compose.common
 
+import android.util.Base64
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -241,7 +242,7 @@ fun AulamaAccountAvatar(
     account: AulamaAccount,
     modifier: Modifier = Modifier
 ) {
-    val photoUrl = remember(account.photoUrl) { normalizeAccountPhotoUrl(account.photoUrl) }
+    val photoModel = remember(account.photoUrl) { accountPhotoModel(account.photoUrl) }
     androidx.compose.foundation.layout.Box(
         modifier = modifier
             .clip(CircleShape)
@@ -253,9 +254,9 @@ fun AulamaAccountAvatar(
             color = AulamaTvColors.TextPrimary,
             style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
         )
-        if (photoUrl.isNotBlank()) {
+        if (photoModel != null) {
             AsyncImage(
-                model = photoUrl,
+                model = photoModel,
                 contentDescription = account.name,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier
@@ -266,9 +267,15 @@ fun AulamaAccountAvatar(
     }
 }
 
-private fun normalizeAccountPhotoUrl(value: String): String {
+private fun accountPhotoModel(value: String): Any? {
     val normalized = value.trim()
     return when {
+        normalized.isBlank() -> null
+        normalized.startsWith("data:image/", ignoreCase = true) && normalized.contains(";base64,") -> {
+            runCatching {
+                Base64.decode(normalized.substringAfter(";base64,"), Base64.DEFAULT)
+            }.getOrNull()
+        }
         normalized.startsWith("//") -> "https:$normalized"
         normalized.startsWith("/") -> "https://aulama.org$normalized"
         else -> normalized

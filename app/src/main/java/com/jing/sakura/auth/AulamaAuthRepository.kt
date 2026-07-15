@@ -107,6 +107,16 @@ class AulamaAuthRepository(
         )
     }
 
+    suspend fun fetchTvAnimeDetail(animeId: String): TvAnimeDetailPayload {
+        if (animeId.isBlank()) return TvAnimeDetailPayload()
+        val url = API_BASE.toHttpUrl().newBuilder()
+            .addPathSegment("detail")
+            .addPathSegment(animeId)
+            .build()
+        val body = authenticatedBody(url) ?: return TvAnimeDetailPayload()
+        return TvLibraryParser.parseAnimeDetail(body)
+    }
+
     suspend fun fetchFavorites(): List<AnimeData> =
         authenticatedBody("/favorites")
             ?.let(TvLibraryParser::parseFavorites)
@@ -157,6 +167,7 @@ class AulamaAuthRepository(
             addProperty("completed", payload.completed)
             addProperty("sourceTypeId", payload.sourceTypeId)
             addProperty("playSessionId", payload.playSessionId)
+            addProperty("updatedAt", payload.updatedAt)
         }.toString().toRequestBody(JSON_MEDIA_TYPE)
         val request = authenticatedRequest("$API_BASE/history", session).post(body).build()
         return client.executeWithCoroutine(request).use { response ->
@@ -247,8 +258,12 @@ class AulamaAuthRepository(
             .header("Accept", "application/json")
 
     private suspend fun authenticatedBody(path: String): String? {
+        return authenticatedBody("$API_BASE$path".toHttpUrl())
+    }
+
+    private suspend fun authenticatedBody(url: okhttp3.HttpUrl): String? {
         val session = _session.value ?: return null
-        val request = authenticatedRequest("$API_BASE$path", session).get().build()
+        val request = authenticatedRequest(url.toString(), session).get().build()
         return client.executeWithCoroutine(request).use { response ->
             if (response.code == 401 || response.code == 403) {
                 clearSession()

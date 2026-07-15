@@ -40,6 +40,7 @@ import androidx.paging.compose.collectAsLazyPagingItems
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import com.jing.sakura.R
+import com.jing.sakura.auth.TvHistoryItem
 import com.jing.sakura.compose.common.AulamaActionButton
 import com.jing.sakura.compose.common.AulamaPageHeader
 import com.jing.sakura.compose.common.AulamaSectionHeader
@@ -59,8 +60,20 @@ fun VideoHistoryScreen(viewModel: HistoryViewModel) {
     val library by viewModel.library.collectAsState()
     val localHistory = viewModel.pager.collectAsLazyPagingItems()
     val localHistoryItems = localHistory.itemSnapshotList.items
-    val localHistoryByAnime = localHistoryItems.associateBy {
-        historyKey(animeId = it.animeId, sourceId = it.sourceId)
+    val localHistoryByAnime = remember(localHistoryItems) {
+        localHistoryItems.associateBy {
+            historyKey(animeId = it.animeId, sourceId = it.sourceId)
+        }
+    }
+    val historyByAnime = remember(library.historyItems, localHistoryByAnime) {
+        val remoteHistory = library.historyItems.associate { item ->
+            val history = item.toVideoHistoryEntity()
+            historyKey(history.animeId, history.sourceId) to history
+        }
+        (remoteHistory.keys + localHistoryByAnime.keys).associateWith { key ->
+            listOfNotNull(remoteHistory[key], localHistoryByAnime[key])
+                .maxBy(VideoHistoryEntity::updateTime)
+        }
     }
     val loading by viewModel.libraryLoading.collectAsState()
     val error by viewModel.libraryError.collectAsState()
@@ -116,7 +129,7 @@ fun VideoHistoryScreen(viewModel: HistoryViewModel) {
                     onOpen = { video ->
                         DetailActivity.startActivity(context, video.id, video.sourceId)
                     },
-                    historyByAnime = localHistoryByAnime
+                    historyByAnime = historyByAnime
                 )
             }
 
@@ -261,3 +274,22 @@ private fun PlaybackProgress(history: VideoHistoryEntity) {
 }
 
 private fun historyKey(animeId: String, sourceId: String): String = "$sourceId:$animeId"
+
+private fun TvHistoryItem.toVideoHistoryEntity(): VideoHistoryEntity = VideoHistoryEntity(
+    animeId = animeId.ifBlank { anime.id },
+    animeName = anime.title,
+    episodeId = episodeId.ifBlank { "cloud:$episodeIndex" },
+    lastEpisodeName = episodeLabel.ifBlank { anime.currentEpisode },
+    updateTime = updatedAtEpochMs.coerceAtLeast(1L),
+    lastPlayTime = currentTimeSeconds.toPositionMs(),
+    videoDuration = durationSeconds.toPositionMs(),
+    coverUrl = anime.imageUrl,
+    sourceId = sourceTypeId.ifBlank { anime.sourceId }
+)
+
+private fun Double.toPositionMs(): Long =
+    takeIf { it.isFinite() && it > 0.0 }
+        ?.times(1_000.0)
+        ?.coerceAtMost(Long.MAX_VALUE.toDouble())
+        ?.toLong()
+        ?: 0L

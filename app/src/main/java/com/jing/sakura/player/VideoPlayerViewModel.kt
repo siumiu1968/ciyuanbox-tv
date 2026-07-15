@@ -4,6 +4,7 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.jing.sakura.auth.AulamaAuthRepository
+import com.jing.sakura.auth.CloudTimestamp
 import com.jing.sakura.auth.PlaybackHistoryPayload
 import com.jing.sakura.data.AnimePlayListEpisode
 import com.jing.sakura.data.Resource
@@ -66,6 +67,8 @@ class VideoPlayerViewModel(
 
     private var loadVideoJob: Pair<AnimePlayListEpisode, Job>? = null
 
+    private var pendingRemoteResumeMs = anime.resumePositionMs
+
 
     init {
         viewModelScope.launch {
@@ -114,6 +117,14 @@ class VideoPlayerViewModel(
                     episodeId = episode.episodeId,
                     sourceId = anime.sourceId
                 )
+                val remoteResumeMs = pendingRemoteResumeMs
+                    .takeIf {
+                        it >= 0L &&
+                            episode.episodeId == anime.playlist.getOrNull(anime.playIndex)?.episodeId
+                    }
+                if (remoteResumeMs != null) {
+                    pendingRemoteResumeMs = NavigateToPlayerArg.NO_REMOTE_RESUME_POSITION
+                }
                 when (resp) {
                     is Resource.Error -> _videoUrl.emit(Resource.Error(resp.message))
                     is Resource.Success -> _videoUrl.emit(
@@ -121,7 +132,10 @@ class VideoPlayerViewModel(
                             EpisodeUrlAndHistory(
                                 videoUrl = resp.data.url,
                                 videoDuration = history?.videoDuration ?: 0L,
-                                lastPlayPosition = history?.lastPlayTime ?: 0L,
+                                lastPlayPosition = remoteResumeMs
+                                    ?.coerceAtLeast(0L)
+                                    ?: history?.lastPlayTime
+                                    ?: 0L,
                                 headers = resp.data.headers,
                                 episode = episode
                             )
@@ -149,48 +163,15 @@ class VideoPlayerViewModel(
     }
 
     fun startSaveHistory() {
-        stopSaveHistory()
+        _saveHistoryJob?.cancel()
         _saveHistoryJob = viewModelScope.launch(Dispatchers.IO) {
             while (true) {
-                playingEpisode?.let { ep ->
-                    val history = VideoHistoryEntity(
-                        animeId = anime.animeId,
-                        animeName = anime.animeName,
-                        episodeId = ep.episodeId,
-                        lastEpisodeName = ep.episode,
-                        updateTime = System.currentTimeMillis(),
-                        lastPlayTime = currentPlayPosition,
-                        coverUrl = anime.coverUrl,
-                        videoDuration = videoDuration,
-                        sourceId = anime.sourceId
-                    )
-                    videoHistoryDao.saveHistory(history)
-                    val now = System.currentTimeMillis()
-                    if (now - lastRemoteSyncAt >= REMOTE_SYNC_INTERVAL_MS) {
-                        val duration = videoDuration.coerceAtLeast(0L)
-                        runCatching {
-                            authRepository.syncPlaybackHistory(
-                                PlaybackHistoryPayload(
-                                    animeId = anime.animeId,
-                                    animeTitle = anime.animeName,
-                                    poster = anime.coverUrl,
-                                    episodeId = ep.episodeId,
-                                    episodeLabel = ep.episode,
-                                    episodeIndex = _playIndex.value.coerceAtLeast(0),
-                                    episodeCount = _playList.size.coerceAtLeast(1),
-                                    currentTimeSeconds = currentPlayPosition.coerceAtLeast(0L) / 1000.0,
-                                    durationSeconds = duration / 1000.0,
-                                    completed = duration > 0L &&
-                                        currentPlayPosition >= (duration - 15_000L).coerceAtLeast(0L),
-                                    sourceTypeId = anime.sourceId,
-                                    playSessionId = playSessionId
-                                )
-                            )
-                        }
-                        lastRemoteSyncAt = now
-                    }
+                if (playingEpisode != null) {
+                    saveHistorySnapshot(forceRemoteSync = false)
                     delay(5000L)
-                } ?: delay(2000L)
+                } else {
+                    delay(2000L)
+                }
             }
         }
     }
@@ -198,6 +179,53 @@ class VideoPlayerViewModel(
     fun stopSaveHistory() {
         _saveHistoryJob?.cancel()
         _saveHistoryJob = null
+        if (playingEpisode != null) {
+            viewModelScope.launch(Dispatchers.IO) {
+                saveHistorySnapshot(forceRemoteSync = true)
+            }
+        }
+    }
+
+    private suspend fun saveHistorySnapshot(forceRemoteSync: Boolean) {
+        val episode = playingEpisode ?: return
+        val now = System.currentTimeMillis()
+        val position = currentPlayPosition.coerceAtLeast(0L)
+        val duration = videoDuration.coerceAtLeast(0L)
+        videoHistoryDao.saveHistory(
+            VideoHistoryEntity(
+                animeId = anime.animeId,
+                animeName = anime.animeName,
+                episodeId = episode.episodeId,
+                lastEpisodeName = episode.episode,
+                updateTime = now,
+                lastPlayTime = position,
+                coverUrl = anime.coverUrl,
+                videoDuration = duration,
+                sourceId = anime.sourceId
+            )
+        )
+        if (!forceRemoteSync && now - lastRemoteSyncAt < REMOTE_SYNC_INTERVAL_MS) return
+
+        val synced = runCatching {
+            authRepository.syncPlaybackHistory(
+                PlaybackHistoryPayload(
+                    animeId = anime.animeId,
+                    animeTitle = anime.animeName,
+                    poster = anime.coverUrl,
+                    episodeId = episode.episodeId,
+                    episodeLabel = episode.episode,
+                    episodeIndex = _playIndex.value.coerceAtLeast(0),
+                    episodeCount = _playList.size.coerceAtLeast(1),
+                    currentTimeSeconds = position / 1000.0,
+                    durationSeconds = duration / 1000.0,
+                    completed = duration > 0L && position >= (duration - 15_000L).coerceAtLeast(0L),
+                    sourceTypeId = anime.sourceId,
+                    playSessionId = playSessionId,
+                    updatedAt = CloudTimestamp.formatEpochMs(now)
+                )
+            )
+        }.getOrDefault(false)
+        if (synced) lastRemoteSyncAt = now
     }
 
     fun playNextEpisodeIfExists() {

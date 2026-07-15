@@ -221,6 +221,13 @@ class CycaniSource(private val okHttpClient: OkHttpClient) : AnimationSource {
         )
     }
 
+    suspend fun fetchTimelineSynopsis(animeId: String): String {
+        if (animeId.isBlank()) return ""
+        return withTimeoutOrNull(TIMELINE_SYNOPSIS_TIMEOUT_MS) {
+            fetchCachedSynopsis(animeId)
+        }.orEmpty().let(::trad)
+    }
+
     override suspend fun fetchVideoUrl(
         animeId: String,
         episodeId: String
@@ -610,6 +617,7 @@ class CycaniSource(private val okHttpClient: OkHttpClient) : AnimationSource {
         private const val AULAMA_API_BASE_URL = "https://aulama.org/anime/api"
         private const val WEB_BASE_URL = "https://www.cycani.org/"
         private const val CACHED_SYNOPSIS_TIMEOUT_MS = 800L
+        private const val TIMELINE_SYNOPSIS_TIMEOUT_MS = 4_000L
         private const val PAYLOAD_PREFIX = "cycapi:"
         private const val DESKTOP_USER_AGENT =
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) cyc-desktop/1.0.8 Chrome/128.0.6613.36 Electron/32.0.1 Safari/537.36"

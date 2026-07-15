@@ -2,6 +2,13 @@
 
 package com.jing.sakura.compose.screen
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -33,6 +40,9 @@ import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -68,6 +78,7 @@ import com.jing.sakura.timeline.TimelineViewModel
 @Composable
 fun TimelineScreen(viewModel: TimelineViewModel) {
     val timeline = viewModel.timelines.collectAsState().value
+    val synopses = viewModel.synopses.collectAsState().value
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -76,7 +87,12 @@ fun TimelineScreen(viewModel: TimelineViewModel) {
         when (timeline) {
             is Resource.Success -> Column(Modifier.fillMaxSize()) {
                 AulamaPageHeader(title = stringResource(R.string.timeline_title))
-                TimeLine(timeline.data, sourceId = viewModel.sourceId)
+                TimeLine(
+                    data = timeline.data,
+                    sourceId = viewModel.sourceId,
+                    synopses = synopses,
+                    onAnimeHighlighted = viewModel::loadSynopsis
+                )
             }
 
             is Resource.Error -> ErrorTip(message = timeline.message) {
@@ -89,7 +105,12 @@ fun TimelineScreen(viewModel: TimelineViewModel) {
 }
 
 @Composable
-fun TimeLine(data: UpdateTimeLine, sourceId: String) {
+fun TimeLine(
+    data: UpdateTimeLine,
+    sourceId: String,
+    synopses: Map<String, String>,
+    onAnimeHighlighted: (AnimeData) -> Unit
+) {
     if (data.timeline.isEmpty()) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Text(
@@ -113,98 +134,107 @@ fun TimeLine(data: UpdateTimeLine, sourceId: String) {
     val firstPosterFocusRequester = remember(selectedDayIndex) { FocusRequester() }
     val programmeRowState = rememberLazyListState()
     val context = LocalContext.current
+    val accent = highlightedAnime?.let { rememberArtworkAccent(it.imageUrl) }
+        ?: Color.Transparent
 
-    Column(modifier = Modifier.fillMaxSize()) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(54.dp)
-                .padding(horizontal = 36.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            data.timeline.forEachIndexed { index, day ->
-                TimelineDayTab(
-                    name = day.first,
-                    selected = index == selectedDayIndex,
-                    modifier = Modifier
-                        .width(92.dp)
-                        .focusRequester(dayFocusRequesters[index])
-                        .focusProperties {
-                            if (day.second.isNotEmpty()) {
-                                down = firstPosterFocusRequester
-                            }
-                        },
-                    onFocused = { selectedDayIndex = index },
-                    onClick = { selectedDayIndex = index }
-                )
-            }
-        }
-
-        TimelineFocusSummary(
-            anime = highlightedAnime,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(136.dp)
-        )
-
-        TimelineStripHeader(
-            count = selectedDay.second.size,
-            isToday = selectedDayIndex == currentDayIndex
-        )
-
-        if (selectedDay.second.isEmpty()) {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text(
-                    text = stringResource(R.string.grid_no_data_tip),
-                    style = MaterialTheme.typography.titleLarge,
-                    color = AulamaTvColors.TextSecondary
-                )
-            }
-        } else {
-            LazyRow(
-                state = programmeRowState,
+    Box(modifier = Modifier.fillMaxSize()) {
+        TimelineBackdrop(anime = highlightedAnime, accent = accent)
+        Column(modifier = Modifier.fillMaxSize()) {
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(236.dp),
-                contentPadding = PaddingValues(horizontal = 36.dp, vertical = 10.dp),
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    .height(54.dp)
+                    .padding(horizontal = 36.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                items(
-                    count = selectedDay.second.size,
-                    key = { index ->
-                        val anime = selectedDay.second[index]
-                        "${anime.sourceId}:${anime.id}:$index"
-                    }
-                ) { index ->
-                    val anime = selectedDay.second[index]
-                    Box(
-                        modifier = Modifier.size(width = 156.dp, height = 220.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        VideoCard(
-                            modifier = Modifier
-                                .size(width = 146.dp, height = 206.dp)
-                                .focusProperties {
-                                    up = dayFocusRequesters[selectedDayIndex]
+                data.timeline.forEachIndexed { index, day ->
+                    TimelineDayTab(
+                        name = day.first,
+                        selected = index == selectedDayIndex,
+                        accent = accent,
+                        modifier = Modifier
+                            .width(92.dp)
+                            .focusRequester(dayFocusRequesters[index])
+                            .focusProperties {
+                                if (day.second.isNotEmpty()) {
+                                    down = firstPosterFocusRequester
                                 }
-                                .run {
-                                    if (index == 0) {
-                                        focusRequester(firstPosterFocusRequester)
-                                    } else {
-                                        this
+                            },
+                        onFocused = { selectedDayIndex = index },
+                        onClick = { selectedDayIndex = index }
+                    )
+                }
+            }
+
+            TimelineFocusSummary(
+                anime = highlightedAnime,
+                dayName = selectedDay.first,
+                synopsis = highlightedAnime?.let { synopses[it.id] }.orEmpty(),
+                accent = accent,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(184.dp)
+            )
+
+            TimelineStripHeader(
+                count = selectedDay.second.size,
+                isToday = selectedDayIndex == currentDayIndex
+            )
+
+            if (selectedDay.second.isEmpty()) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text(
+                        text = stringResource(R.string.grid_no_data_tip),
+                        style = MaterialTheme.typography.titleLarge,
+                        color = AulamaTvColors.TextSecondary
+                    )
+                }
+            } else {
+                LazyRow(
+                    state = programmeRowState,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(236.dp),
+                    contentPadding = PaddingValues(horizontal = 36.dp, vertical = 10.dp),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    items(
+                        count = selectedDay.second.size,
+                        key = { index ->
+                            val anime = selectedDay.second[index]
+                            "${anime.sourceId}:${anime.id}:$index"
+                        }
+                    ) { index ->
+                        val anime = selectedDay.second[index]
+                        Box(
+                            modifier = Modifier.size(width = 156.dp, height = 220.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            VideoCard(
+                                modifier = Modifier
+                                    .size(width = 146.dp, height = 206.dp)
+                                    .focusProperties {
+                                        up = dayFocusRequesters[selectedDayIndex]
                                     }
-                                },
-                            imageUrl = anime.imageUrl,
-                            title = anime.title,
-                            subTitle = anime.currentEpisode,
-                            focusScale = AulamaFocusScale,
-                            onFocused = { highlightedAnimeIndex = index },
-                            onClick = {
-                                DetailActivity.startActivity(context, anime.id, sourceId)
-                            }
-                        )
+                                    .run {
+                                        if (index == 0) {
+                                            focusRequester(firstPosterFocusRequester)
+                                        } else {
+                                            this
+                                        }
+                                    },
+                                imageUrl = anime.imageUrl,
+                                title = anime.title,
+                                subTitle = anime.currentEpisode,
+                                focusScale = AulamaFocusScale,
+                                onFocused = { highlightedAnimeIndex = index },
+                                onClick = {
+                                    DetailActivity.startActivity(context, anime.id, sourceId)
+                                }
+                            )
+                        }
                     }
                 }
             }
@@ -219,77 +249,141 @@ fun TimeLine(data: UpdateTimeLine, sourceId: String) {
         highlightedAnimeIndex = 0
         programmeRowState.scrollToItem(0)
     }
+
+    LaunchedEffect(highlightedAnime?.id) {
+        highlightedAnime?.let(onAnimeHighlighted)
+    }
+}
+
+@Composable
+private fun TimelineBackdrop(anime: AnimeData?, accent: Color) {
+    Box(modifier = Modifier.fillMaxSize()) {
+        AnimatedContent(
+            targetState = anime,
+            transitionSpec = {
+                (fadeIn(tween(240)) + slideInHorizontally(tween(240)) { it / 14 })
+                    .togetherWith(
+                        fadeOut(tween(180)) + slideOutHorizontally(tween(180)) { -it / 18 }
+                    )
+            },
+            label = "timeline-backdrop"
+        ) { selected ->
+            if (selected != null) {
+                val request = rememberPosterImageRequest(
+                    imageUrl = selected.imageUrl,
+                    widthPx = 960,
+                    heightPx = 1360
+                )
+                AsyncImage(
+                    model = request,
+                    contentDescription = null,
+                    contentScale = ContentScale.Fit,
+                    alignment = Alignment.TopEnd,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .graphicsLayer {
+                            alpha = 0.76f
+                            scaleX = 1.34f
+                            scaleY = 1.34f
+                            transformOrigin = TransformOrigin(1f, 0f)
+                        }
+                )
+            }
+        }
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.radialGradient(
+                        colors = listOf(accent.copy(alpha = 0.18f), Color.Transparent),
+                        radius = 760f
+                    )
+                )
+                .background(
+                    Brush.horizontalGradient(
+                        colorStops = arrayOf(
+                            0f to AulamaTvColors.Background,
+                            0.40f to AulamaTvColors.Background,
+                            0.55f to AulamaTvColors.Background.copy(alpha = 0.90f),
+                            0.72f to AulamaTvColors.Background.copy(alpha = 0.34f),
+                            1f to Color.Transparent
+                        )
+                    )
+                )
+                .background(
+                    Brush.verticalGradient(
+                        colorStops = arrayOf(
+                            0f to AulamaTvColors.Background.copy(alpha = 0.22f),
+                            0.48f to Color.Transparent,
+                            0.76f to AulamaTvColors.Background.copy(alpha = 0.88f),
+                            1f to AulamaTvColors.Background
+                        )
+                    )
+                )
+        )
+    }
 }
 
 @Composable
 private fun TimelineFocusSummary(
     anime: AnimeData?,
+    dayName: String,
+    synopsis: String,
+    accent: Color,
     modifier: Modifier = Modifier
 ) {
-    if (anime == null) {
-        Spacer(modifier)
-        return
-    }
-
-    val accent = rememberArtworkAccent(anime.imageUrl)
-    val posterRequest = rememberPosterImageRequest(anime.imageUrl)
-    val title = localizedText(anime.title)
-    val meta = remember(anime.currentEpisode, anime.year) {
-        listOf(anime.currentEpisode, anime.year)
-            .map(::cleanTimelineText)
-            .filter(String::isNotBlank)
-            .distinct()
-            .joinToString("  ·  ")
-    }
-    val description = remember(anime.description, anime.tags) {
-        cleanTimelineText(anime.description).ifBlank {
-            cleanTimelineText(anime.tags)
-        }
-    }
-
-    Row(
-        modifier = modifier.padding(horizontal = 42.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Box(
-            modifier = Modifier
-                .size(width = 82.dp, height = 116.dp)
-                .clip(AulamaCardShape)
-                .background(AulamaTvColors.SurfaceRaised)
-        ) {
-            AsyncImage(
-                model = posterRequest,
-                contentDescription = title,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxSize()
+    AnimatedContent(
+        targetState = anime,
+        modifier = modifier,
+        transitionSpec = {
+            (fadeIn(tween(240)) + slideInHorizontally(tween(240)) { it / 18 })
+                .togetherWith(
+                    fadeOut(tween(180)) + slideOutHorizontally(tween(180)) { -it / 24 }
+                )
+        },
+        label = "timeline-summary"
+    ) { selected ->
+        if (selected == null) {
+            Spacer(Modifier.fillMaxSize())
+        } else {
+            val title = localizedText(selected.title)
+            val airInfo = remember(dayName, selected.currentEpisode) {
+                listOf(dayName, selected.currentEpisode)
+                    .map(::cleanTimelineText)
+                    .filter(String::isNotBlank)
+                    .distinct()
+                    .joinToString("  ·  ")
+            }
+            val description = localizedText(
+                cleanTimelineText(synopsis).ifBlank { "正在載入中文簡介..." }
             )
-        }
-        Spacer(Modifier.width(22.dp))
-        Spacer(
-            modifier = Modifier
-                .size(width = 4.dp, height = 82.dp)
-                .background(accent, AulamaCardShape)
-        )
-        Spacer(Modifier.width(18.dp))
-        Column(
-            modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.Center
-        ) {
-            Text(
-                text = title,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                style = MaterialTheme.typography.headlineMedium.copy(
-                    fontSize = 27.sp,
-                    lineHeight = 32.sp,
-                    fontWeight = FontWeight.SemiBold
-                ),
-                color = accent
-            )
-            if (meta.isNotBlank()) {
-                Spacer(Modifier.height(4.dp))
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 42.dp, vertical = 14.dp),
+                verticalArrangement = Arrangement.Center
+            ) {
+                Spacer(
+                    modifier = Modifier
+                        .size(width = 34.dp, height = 3.dp)
+                        .background(accent, AulamaCardShape)
+                )
+                Spacer(Modifier.height(9.dp))
                 Text(
-                    text = meta,
+                    text = title,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    style = MaterialTheme.typography.headlineMedium.copy(
+                        fontSize = 30.sp,
+                        lineHeight = 35.sp,
+                        fontWeight = FontWeight.SemiBold
+                    ),
+                    color = AulamaTvColors.TextPrimary,
+                    modifier = Modifier.fillMaxWidth(0.52f)
+                )
+                Spacer(Modifier.height(5.dp))
+                Text(
+                    text = localizedText("播出時間  ·  $airInfo"),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     style = MaterialTheme.typography.titleSmall.copy(
@@ -297,20 +391,20 @@ private fun TimelineFocusSummary(
                         lineHeight = 19.sp,
                         fontWeight = FontWeight.Medium
                     ),
-                    color = AulamaTvColors.TextPrimary
+                    color = accent,
+                    modifier = Modifier.fillMaxWidth(0.54f)
                 )
-            }
-            if (description.isNotBlank()) {
-                Spacer(Modifier.height(5.dp))
+                Spacer(Modifier.height(7.dp))
                 Text(
                     text = description,
-                    maxLines = 2,
+                    maxLines = 3,
                     overflow = TextOverflow.Ellipsis,
                     style = MaterialTheme.typography.bodyMedium.copy(
                         fontSize = 16.sp,
                         lineHeight = 21.sp
                     ),
-                    color = AulamaTvColors.TextSecondary
+                    color = AulamaTvColors.TextSecondary,
+                    modifier = Modifier.fillMaxWidth(0.56f)
                 )
             }
         }
@@ -327,7 +421,7 @@ private fun TimelineStripHeader(count: Int, isToday: Boolean) {
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
-            text = if (isToday) "今日播送" else "播送節目",
+            text = localizedText(if (isToday) "今日播送" else "播送節目"),
             style = MaterialTheme.typography.titleLarge.copy(
                 fontSize = 21.sp,
                 lineHeight = 26.sp,
@@ -337,7 +431,7 @@ private fun TimelineStripHeader(count: Int, isToday: Boolean) {
         )
         Spacer(Modifier.width(12.dp))
         Text(
-            text = "$count 套",
+            text = localizedText("$count 套"),
             style = MaterialTheme.typography.labelLarge.copy(
                 fontSize = 14.sp,
                 lineHeight = 18.sp
@@ -351,6 +445,7 @@ private fun TimelineStripHeader(count: Int, isToday: Boolean) {
 private fun TimelineDayTab(
     name: String,
     selected: Boolean,
+    accent: Color,
     modifier: Modifier = Modifier,
     onFocused: () -> Unit,
     onClick: () -> Unit
@@ -368,7 +463,7 @@ private fun TimelineDayTab(
         colors = ClickableSurfaceDefaults.colors(
             containerColor = Color.Transparent,
             focusedContainerColor = Color.Transparent,
-            pressedContainerColor = AulamaTvColors.Cyan.copy(alpha = 0.08f)
+            pressedContainerColor = accent.copy(alpha = 0.08f)
         )
     ) {
         Column(
@@ -377,7 +472,7 @@ private fun TimelineDayTab(
             verticalArrangement = Arrangement.Center
         ) {
             Text(
-                text = name,
+                text = localizedText(name),
                 modifier = Modifier.fillMaxWidth(),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -388,7 +483,7 @@ private fun TimelineDayTab(
                     fontWeight = if (selected || focused) FontWeight.SemiBold else FontWeight.Medium
                 ),
                 color = if (selected || focused) {
-                    AulamaTvColors.Cyan
+                    accent
                 } else {
                     AulamaTvColors.TextSecondary
                 }
@@ -398,7 +493,7 @@ private fun TimelineDayTab(
                 modifier = Modifier
                     .size(width = 28.dp, height = 3.dp)
                     .background(
-                        color = if (selected) AulamaTvColors.Cyan else Color.Transparent,
+                        color = if (selected) accent else Color.Transparent,
                         shape = AulamaCardShape
                     )
             )

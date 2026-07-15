@@ -1,8 +1,10 @@
 package com.jing.sakura
 
 import android.annotation.SuppressLint
+import android.app.Activity
 import android.app.Application
 import android.content.Context
+import android.os.Bundle
 import android.util.Log
 import android.webkit.CookieManager
 import android.webkit.WebSettings
@@ -21,6 +23,8 @@ import com.jing.sakura.home.CategoryViewModel
 import com.jing.sakura.home.HomeViewModel
 import com.jing.sakura.http.WebServerContext
 import com.jing.sakura.player.VideoPlayerViewModel
+import com.jing.sakura.player.PlaybackActivity
+import com.jing.sakura.remote.RemotePlaybackCoordinator
 import com.jing.sakura.repo.WebPageRepository
 import com.jing.sakura.room.SakuraDatabase
 import com.jing.sakura.search.SearchResultViewModel
@@ -34,25 +38,76 @@ import org.koin.android.ext.koin.androidLogger
 import org.koin.androidx.viewmodel.dsl.viewModel
 import org.koin.androidx.viewmodel.dsl.viewModelOf
 import org.koin.core.context.startKoin
+import org.koin.core.Koin
 import org.koin.core.qualifier.qualifier
 import org.koin.dsl.module
+import java.lang.ref.WeakReference
 import java.security.SecureRandom
 import java.security.cert.X509Certificate
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import javax.net.ssl.SSLContext
 import javax.net.ssl.X509TrustManager
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 
 class SakuraApplication : Application(), ImageLoaderFactory {
+
+    private val remotePlaybackScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    private var remotePlaybackJob: Job? = null
+    private var currentActivity = WeakReference<Activity>(null)
+    private lateinit var applicationKoin: Koin
+
+    private val remotePlaybackCallbacks = object : Application.ActivityLifecycleCallbacks {
+        override fun onActivityResumed(activity: Activity) {
+            currentActivity = WeakReference(activity)
+            startRemotePlayback()
+        }
+
+        override fun onActivityPaused(activity: Activity) {
+            if (currentActivity.get() === activity) {
+                currentActivity.clear()
+                remotePlaybackJob?.cancel()
+                remotePlaybackJob = null
+            }
+        }
+
+        override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) = Unit
+        override fun onActivityStarted(activity: Activity) = Unit
+        override fun onActivityStopped(activity: Activity) = Unit
+        override fun onActivitySaveInstanceState(activity: Activity, outState: Bundle) = Unit
+        override fun onActivityDestroyed(activity: Activity) = Unit
+    }
 
     override fun onCreate() {
         super.onCreate()
         CookieManager.getInstance().removeAllCookies { }
         context = this
-        startKoin {
+        applicationKoin = startKoin {
             androidContext(this@SakuraApplication)
             androidLogger()
             modules(httpModule(), roomModule(), viewModelModule())
+        }.koin
+        registerActivityLifecycleCallbacks(remotePlaybackCallbacks)
+    }
+
+    private fun startRemotePlayback() {
+        if (remotePlaybackJob?.isActive == true) return
+        remotePlaybackJob = remotePlaybackScope.launch {
+            RemotePlaybackCoordinator.runWhileStarted(
+                owner = this@SakuraApplication,
+                authRepository = applicationKoin.get(),
+                webPageRepository = applicationKoin.get()
+            ) { playerArg ->
+                val activity = currentActivity.get() ?: return@runWhileStarted false
+                PlaybackActivity.startActivity(activity, playerArg)
+                if (activity is PlaybackActivity) activity.finish()
+                true
+            }
         }
     }
 
@@ -185,6 +240,8 @@ class SakuraApplication : Application(), ImageLoaderFactory {
     }
 
     override fun onTerminate() {
+        unregisterActivityLifecycleCallbacks(remotePlaybackCallbacks)
+        remotePlaybackScope.cancel()
         WebServerContext.stopServer()
         super.onTerminate()
     }

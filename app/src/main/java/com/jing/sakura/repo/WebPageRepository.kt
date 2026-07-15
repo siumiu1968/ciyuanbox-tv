@@ -22,6 +22,11 @@ class WebPageRepository(
     fun requireAnimationSource(sourceId: String): AnimationSource =
         animationSourceMap[sourceId] ?: throw RuntimeException("数据源不存在:$sourceId")
 
+    fun resolveAnimationSourceId(sourceId: String): String =
+        sourceId.takeIf(animationSourceMap::containsKey)
+            ?: animationSources.singleOrNull()?.sourceId
+            ?: throw RuntimeException("数据源不存在:$sourceId")
+
     suspend fun fetchHomePage(sourceId: String): HomePageData =
         requireAnimationSource(sourceId).fetchHomePageData()
 

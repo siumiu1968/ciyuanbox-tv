@@ -1,7 +1,10 @@
 package com.jing.sakura.compose.common
 
+import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Color as AndroidColor
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -18,16 +21,59 @@ import coil.request.ImageRequest
 import coil.request.SuccessResult
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.security.MessageDigest
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.pow
 
 private object ArtworkAccentCache {
+    private const val PREFERENCES_NAME = "artwork_accent_cache"
+    private const val INDEX_KEY = "cached_keys"
+    private const val MAX_ENTRIES = 160
     private val colors = ConcurrentHashMap<String, Int>()
 
-    fun get(key: String): Color? = colors[key]?.let(::Color)
+    fun get(context: Context, key: String): Color? {
+        colors[key]?.let { return Color(it) }
+        val storageKey = storageKey(key)
+        val preferences = context.applicationContext.getSharedPreferences(
+            PREFERENCES_NAME,
+            Context.MODE_PRIVATE
+        )
+        if (!preferences.contains(storageKey)) return null
+        return Color(preferences.getInt(storageKey, 0)).also {
+            colors[key] = it.toArgb()
+        }
+    }
 
-    fun put(key: String, color: Color) {
+    @Synchronized
+    fun put(context: Context, key: String, color: Color) {
         colors[key] = color.toArgb()
+        val preferences = context.applicationContext.getSharedPreferences(
+            PREFERENCES_NAME,
+            Context.MODE_PRIVATE
+        )
+        val storageKey = storageKey(key)
+        val keys = preferences.getString(INDEX_KEY, "")
+            .orEmpty()
+            .lineSequence()
+            .filter(String::isNotBlank)
+            .filterNot { it == storageKey }
+            .toMutableList()
+            .apply { add(storageKey) }
+        val expired = keys.take((keys.size - MAX_ENTRIES).coerceAtLeast(0))
+        val retained = keys.takeLast(MAX_ENTRIES)
+        preferences.edit().apply {
+            expired.forEach(::remove)
+            putInt(storageKey, color.toArgb())
+            putString(INDEX_KEY, retained.joinToString("\n"))
+        }.apply()
+    }
+
+    private fun storageKey(key: String): String {
+        val digest = MessageDigest.getInstance("SHA-256")
+            .digest(key.toByteArray(Charsets.UTF_8))
+            .take(16)
+            .joinToString("") { byte -> "%02x".format(byte) }
+        return "accent_$digest"
     }
 }
 
@@ -36,12 +82,17 @@ fun rememberArtworkAccent(imageUrl: String, enabled: Boolean = true): Color {
     val context = LocalContext.current
     val fallback = remember(imageUrl) { fallbackArtworkAccent(imageUrl) }
     var accent by remember(imageUrl) {
-        mutableStateOf(ArtworkAccentCache.get(imageUrl) ?: fallback)
+        mutableStateOf(ArtworkAccentCache.get(context, imageUrl) ?: fallback)
     }
+    val animatedAccent by animateColorAsState(
+        targetValue = accent,
+        animationSpec = tween(durationMillis = 240),
+        label = "artwork-accent"
+    )
 
     LaunchedEffect(imageUrl, enabled) {
         if (!enabled || imageUrl.isBlank()) return@LaunchedEffect
-        ArtworkAccentCache.get(imageUrl)?.let {
+        ArtworkAccentCache.get(context, imageUrl)?.let {
             accent = it
             return@LaunchedEffect
         }
@@ -59,14 +110,14 @@ fun rememberArtworkAccent(imageUrl: String, enabled: Boolean = true): Color {
         val extracted = withContext(Dispatchers.Default) {
             runCatching { extractArtworkAccent(drawable.toBitmap()) }.getOrNull()
         } ?: return@LaunchedEffect
-        ArtworkAccentCache.put(imageUrl, extracted)
+        ArtworkAccentCache.put(context, imageUrl, extracted)
         accent = extracted
     }
 
-    return accent
+    return animatedAccent
 }
 
-private fun extractArtworkAccent(source: Bitmap): Color {
+private fun extractArtworkAccent(source: Bitmap): Color? {
     val bitmap = Bitmap.createScaledBitmap(source, 24, 24, true)
     val hueBuckets = Array(24) { FloatArray(5) }
     val hsv = FloatArray(3)
@@ -93,7 +144,7 @@ private fun extractArtworkAccent(source: Bitmap): Color {
     if (bitmap !== source) bitmap.recycle()
     val winningBucket = hueBuckets.maxByOrNull { it[3] * (1f + it[4] / 40f) }
         ?.takeIf { it[3] > 0f }
-        ?: return AulamaTvColors.FocusBorder
+        ?: return null
     val weight = winningBucket[3]
     val color = AndroidColor.rgb(
         (winningBucket[0] / weight).toInt().coerceIn(0, 255),
@@ -108,12 +159,12 @@ private fun extractArtworkAccent(source: Bitmap): Color {
 
 private fun fallbackArtworkAccent(key: String): Color {
     val palette = listOf(
-        Color(0xFF5DE7F2),
         Color(0xFF6FA8FF),
         Color(0xFF9C82FF),
         Color(0xFFFF65A3),
         Color(0xFFFFB45C),
-        Color(0xFF61D89B)
+        Color(0xFF61D89B),
+        Color(0xFFE97974)
     )
     return palette[(key.hashCode() and Int.MAX_VALUE) % palette.size]
 }

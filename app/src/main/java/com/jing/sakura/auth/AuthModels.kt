@@ -1,5 +1,9 @@
 package com.jing.sakura.auth
 
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import java.util.TimeZone
 import kotlin.math.ceil
 
 data class AulamaAccount(
@@ -22,6 +26,7 @@ data class TvLibraryPayload(
 )
 
 data class TvHistoryItem(
+    val animeId: String,
     val anime: com.jing.sakura.data.AnimeData,
     val episodeId: String = "",
     val episodeLabel: String = "",
@@ -31,7 +36,14 @@ data class TvHistoryItem(
     val durationSeconds: Double = 0.0,
     val completed: Boolean = false,
     val sourceTypeId: String = "",
-    val updatedAt: String = ""
+    val updatedAt: String = "",
+    val updatedAtEpochMs: Long = 0L
+)
+
+data class TvAnimeDetailPayload(
+    val related: List<com.jing.sakura.data.AnimeData> = emptyList(),
+    val recommendations: List<com.jing.sakura.data.AnimeData> = emptyList(),
+    val personalizedRecommendations: Boolean = false
 )
 
 data class PlaybackHistoryPayload(
@@ -46,8 +58,34 @@ data class PlaybackHistoryPayload(
     val durationSeconds: Double,
     val completed: Boolean,
     val sourceTypeId: String,
-    val playSessionId: String
+    val playSessionId: String,
+    val updatedAt: String
 )
+
+internal object CloudTimestamp {
+    private val timestampPattern = Regex(
+        """^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})(?:\.(\d{1,9}))?(Z|[+-]\d{2}:?\d{2})$"""
+    )
+
+    fun parseEpochMs(value: String): Long {
+        val match = timestampPattern.matchEntire(value.trim()) ?: return 0L
+        val fraction = match.groupValues[2].padEnd(3, '0').take(3)
+        val timezone = match.groupValues[3].let {
+            if (it == "Z") "+0000" else it.replace(":", "")
+        }
+        val normalized = "${match.groupValues[1]}.$fraction$timezone"
+        return runCatching {
+            SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZ", Locale.US).apply {
+                isLenient = false
+            }.parse(normalized)?.time ?: 0L
+        }.getOrDefault(0L)
+    }
+
+    fun formatEpochMs(value: Long): String =
+        SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US).apply {
+            timeZone = TimeZone.getTimeZone("UTC")
+        }.format(Date(value.coerceAtLeast(0L)))
+}
 
 data class FavoritePayload(
     val id: String,

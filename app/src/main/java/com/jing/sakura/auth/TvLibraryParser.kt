@@ -49,6 +49,7 @@ object TvLibraryParser {
                 )
             }.getOrNull() ?: return@mapNotNull null
             TvHistoryItem(
+                animeId = item.primitiveString("animeId").ifBlank { anime.id },
                 anime = anime,
                 episodeId = item.primitiveString("episodeId"),
                 episodeLabel = item.primitiveString("episodeLabel"),
@@ -58,9 +59,27 @@ object TvLibraryParser {
                 durationSeconds = item.nonNegativeDouble("duration"),
                 completed = item.boolean("completed"),
                 sourceTypeId = item.primitiveString("sourceTypeId"),
-                updatedAt = item.primitiveString("updatedAt")
+                updatedAt = item.primitiveString("updatedAt"),
+                updatedAtEpochMs = CloudTimestamp.parseEpochMs(item.primitiveString("updatedAt"))
             )
         }.distinctBy { it.anime.id }
+    }
+
+    fun parseAnimeDetail(body: String): TvAnimeDetailPayload {
+        val root = runCatching { JsonParser.parseString(body) }
+            .getOrNull()
+            ?.takeIf(JsonElement::isJsonObject)
+            ?.asJsonObject
+            ?: return TvAnimeDetailPayload()
+        val item = root.get("item")
+            ?.takeIf(JsonElement::isJsonObject)
+            ?.asJsonObject
+            ?: root
+        return TvAnimeDetailPayload(
+            related = RecommendationParser.parseItems(item.array("related")),
+            recommendations = RecommendationParser.parseItems(item.array("recommendations")),
+            personalizedRecommendations = item.boolean("personalizedRecommendations")
+        )
     }
 
     private fun com.google.gson.JsonObject.array(key: String): JsonArray =

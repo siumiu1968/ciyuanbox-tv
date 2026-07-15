@@ -79,6 +79,7 @@ class TvLibraryParserTest {
         ).single()
 
         assertEquals("h1", item.anime.id)
+        assertEquals("h1", item.animeId)
         assertEquals("續播一", item.anime.title)
         assertEquals("h.jpg", item.anime.imageUrl)
         assertEquals("ep-8", item.episodeId)
@@ -90,6 +91,7 @@ class TvLibraryParserTest {
         assertTrue(item.completed)
         assertEquals("7", item.sourceTypeId)
         assertEquals("2026-07-14T10:00:00Z", item.updatedAt)
+        assertTrue(item.updatedAtEpochMs > 0L)
     }
 
     @Test
@@ -115,6 +117,7 @@ class TvLibraryParserTest {
         assertEquals(0.0, item.durationSeconds, 0.0)
         assertEquals(false, item.completed)
         assertEquals("", item.updatedAt)
+        assertEquals(0L, item.updatedAtEpochMs)
     }
 
     @Test
@@ -141,5 +144,38 @@ class TvLibraryParserTest {
                 ]}
             """.trimIndent()
         ))
+    }
+
+    @Test
+    fun mapsWebsiteDetailRecommendations() {
+        val payload = TvLibraryParser.parseAnimeDetail(
+            """
+                {
+                  "ok": true,
+                  "item": {
+                    "related": [
+                      {"id":"same-series","title":"同系列","poster":"related.jpg"}
+                    ],
+                    "recommendations": [
+                      {"id":"for-you","title":"為你推介","poster":"recommended.jpg"}
+                    ],
+                    "personalizedRecommendations": true
+                  }
+                }
+            """.trimIndent()
+        )
+
+        assertEquals("同系列", payload.related.single().title)
+        assertEquals("為你推介", payload.recommendations.single().title)
+        assertTrue(payload.personalizedRecommendations)
+    }
+
+    @Test
+    fun parsesCloudTimestampsWithFractionAndTimezone() {
+        val utc = CloudTimestamp.parseEpochMs("2026-07-14T10:00:00.125Z")
+        val hongKong = CloudTimestamp.parseEpochMs("2026-07-14T18:00:00.125+08:00")
+
+        assertEquals(utc, hongKong)
+        assertEquals("2026-07-14T10:00:00.125Z", CloudTimestamp.formatEpochMs(utc))
     }
 }

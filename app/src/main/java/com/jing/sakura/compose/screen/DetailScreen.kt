@@ -2,11 +2,7 @@
 
 package com.jing.sakura.compose.screen
 
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.focusable
@@ -93,9 +89,7 @@ import com.jing.sakura.compose.common.AulamaTvColors
 import com.jing.sakura.compose.common.ErrorTip
 import com.jing.sakura.compose.common.FocusGroup
 import com.jing.sakura.compose.common.Loading
-import com.jing.sakura.compose.common.UpAndDownFocusProperties
 import com.jing.sakura.compose.common.VideoCard
-import com.jing.sakura.compose.common.applyUpAndDown
 import com.jing.sakura.compose.common.localizedText
 import com.jing.sakura.compose.common.rememberArtworkAccent
 import com.jing.sakura.compose.common.rememberDpadRepeatGate
@@ -117,8 +111,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 private val DetailHeroHeight = 346.dp
-private val RelatedContentShift = 96.dp
-private const val DetailDepthAnimationMillis = 240
 
 @Composable
 fun DetailScreen(viewModel: DetailPageViewModel) {
@@ -196,15 +188,6 @@ fun DetailScreen(viewModel: DetailPageViewModel) {
     val primaryActionFocusRequester = remember(detail.animeId) { FocusRequester() }
     val restoreEpisodeFocusRequester = remember { FocusRequester() }
     val detailListState = rememberLazyListState()
-    var relatedContentFocused by remember(detail.animeId) { mutableStateOf(false) }
-    val detailDepthProgress by animateFloatAsState(
-        targetValue = if (relatedContentFocused) 1f else 0f,
-        animationSpec = tween(
-            durationMillis = DetailDepthAnimationMillis,
-            easing = FastOutSlowInEasing
-        ),
-        label = "detail-depth"
-    )
     val hasDetailRows = playlists.isNotEmpty() || detail.otherAnimeList.isNotEmpty()
 
     val primaryPlayPosition = remember(
@@ -261,20 +244,9 @@ fun DetailScreen(viewModel: DetailPageViewModel) {
             primaryActionFocusRequester = primaryActionFocusRequester,
             accent = detailAccent,
             modifier = Modifier
-                .run {
-                    if (detailDepthProgress > 0.001f) {
-                        graphicsLayer {
-                            translationY = -64.dp.toPx() * detailDepthProgress
-                            alpha = 1f - (0.68f * detailDepthProgress)
-                        }
-                    } else {
-                        this
-                    }
-                }
                 .focusRequester(focusRequesters.hero)
                 .onFocusChanged { state ->
                     if (state.isFocused || state.hasFocus) {
-                        relatedContentFocused = false
                         if (hasDetailRows) {
                             scope.launch { detailListState.animateScrollToItem(0) }
                         }
@@ -285,16 +257,7 @@ fun DetailScreen(viewModel: DetailPageViewModel) {
             state = detailListState,
             modifier = Modifier
                 .fillMaxSize()
-                .padding(top = DetailHeroHeight)
-                .run {
-                    if (detailDepthProgress > 0.001f) {
-                        graphicsLayer {
-                            translationY = -RelatedContentShift.toPx() * detailDepthProgress
-                        }
-                    } else {
-                        this
-                    }
-                },
+                .padding(top = DetailHeroHeight),
             contentPadding = PaddingValues(bottom = 44.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
@@ -313,13 +276,7 @@ fun DetailScreen(viewModel: DetailPageViewModel) {
                     showOrderControl = playlistIndex == 0,
                     reverseEpisodes = reverseEpisodes,
                     orderFocusRequester = focusRequesters.order,
-                    modifier = Modifier
-                        .focusRequester(focusRequesters.playlists[playlistIndex])
-                        .onFocusChanged { state ->
-                            if (state.isFocused || state.hasFocus) {
-                                relatedContentFocused = false
-                            }
-                        },
+                    modifier = Modifier.focusRequester(focusRequesters.playlists[playlistIndex]),
                     restoreFocusRequester = restoreEpisodeFocusRequester,
                     restoreFocusEpisodeIndex = restoreEpisodePosition
                         .takeIf { it.first == playlistIndex }
@@ -333,17 +290,49 @@ fun DetailScreen(viewModel: DetailPageViewModel) {
                             runCatching { focusRequesters.order?.requestFocus() }
                         }
                     },
-                    onReturnToHero = {
-                        relatedContentFocused = false
+                    onNavigateUp = {
                         scope.launch {
-                            detailListState.scrollToItem(0)
-                            val primaryFocusResult = runCatching {
-                                primaryActionFocusRequester.requestFocus()
-                            }
-                            if (primaryFocusResult.isFailure) {
-                                runCatching { focusRequesters.hero.requestFocus() }
+                            if (playlistIndex > 0) {
+                                detailListState.scrollToItem(playlistIndex - 1)
+                                delay(40)
+                                runCatching {
+                                    focusRequesters.playlists[playlistIndex - 1].requestFocus()
+                                }
+                            } else {
+                                detailListState.scrollToItem(0)
+                                val primaryFocusResult = runCatching {
+                                    primaryActionFocusRequester.requestFocus()
+                                }
+                                if (primaryFocusResult.isFailure) {
+                                    runCatching { focusRequesters.hero.requestFocus() }
+                                }
                             }
                         }
+                    },
+                    onNavigateDown = when {
+                        playlistIndex < playlists.lastIndex -> {
+                            {
+                                scope.launch {
+                                    detailListState.scrollToItem(playlistIndex + 1)
+                                    delay(40)
+                                    runCatching {
+                                        focusRequesters.playlists[playlistIndex + 1].requestFocus()
+                                    }
+                                }
+                            }
+                        }
+
+                        focusRequesters.related != null -> {
+                            {
+                                scope.launch {
+                                    detailListState.scrollToItem(playlists.size)
+                                    delay(40)
+                                    runCatching { focusRequesters.related.requestFocus() }
+                                }
+                            }
+                        }
+
+                        else -> null
                     },
                     onEpisodeFocused = { episodeIndex, _ ->
                         focusedEpisodeIndexes = focusedEpisodeIndexes.toMutableList().also {
@@ -369,13 +358,24 @@ fun DetailScreen(viewModel: DetailPageViewModel) {
                     RelatedAnimeSection(
                         videos = detail.otherAnimeList,
                         sourceId = viewModel.sourceId,
-                        modifier = Modifier
-                            .focusRequester(focusRequesters.related!!)
-                            .onFocusChanged { state ->
-                                if (state.isFocused || state.hasFocus) {
-                                    relatedContentFocused = true
+                        onNavigateUp = {
+                            scope.launch {
+                                if (playlists.isNotEmpty()) {
+                                    detailListState.scrollToItem(playlists.lastIndex)
+                                    delay(40)
+                                    runCatching { focusRequesters.playlists.last().requestFocus() }
+                                } else {
+                                    detailListState.scrollToItem(0)
+                                    val primaryFocusResult = runCatching {
+                                        primaryActionFocusRequester.requestFocus()
+                                    }
+                                    if (primaryFocusResult.isFailure) {
+                                        runCatching { focusRequesters.hero.requestFocus() }
+                                    }
                                 }
                             }
+                        },
+                        modifier = Modifier.focusRequester(focusRequesters.related!!)
                     )
                 }
             }
@@ -391,7 +391,6 @@ fun DetailScreen(viewModel: DetailPageViewModel) {
     }
     LaunchedEffect(resumeFocusSignal) {
         if (restoreEpisodePosition.first >= 0 && restoreEpisodePosition.second >= 0) {
-            relatedContentFocused = false
             delay(140)
             runCatching { restoreEpisodeFocusRequester.requestFocus() }
             restoreEpisodePosition = -1 to -1
@@ -420,11 +419,11 @@ private fun DetailBackdrop(imageUrl: String, accent: Color) {
             contentDescription = null,
             contentScale = ContentScale.Crop,
             alignment = Alignment.TopEnd,
+            alpha = 0.38f,
             modifier = Modifier
                 .align(Alignment.CenterEnd)
                 .fillMaxWidth(0.58f)
                 .fillMaxHeight()
-                .graphicsLayer { alpha = 0.38f }
         )
         Box(
             modifier = Modifier
@@ -653,13 +652,6 @@ private fun DetailPoster(
     Box(
         modifier = modifier
             .size(width = 218.dp, height = 310.dp)
-            .graphicsLayer {
-                shadowElevation = 10.dp.toPx()
-                ambientShadowColor = accent.copy(alpha = 0.38f)
-                spotShadowColor = accent.copy(alpha = 0.62f)
-                this.shape = shape
-                clip = false
-            }
             .clip(shape)
             .border(1.5.dp, accent.copy(alpha = 0.7f), shape)
             .background(Color(0xFF0A0E16))
@@ -762,7 +754,8 @@ private fun EpisodeSection(
     restoreFocusRequester: FocusRequester,
     restoreFocusEpisodeIndex: Int,
     onToggleOrder: () -> Unit,
-    onReturnToHero: () -> Unit,
+    onNavigateUp: () -> Unit,
+    onNavigateDown: (() -> Unit)?,
     onEpisodeFocused: (Int, AnimePlayListEpisode) -> Unit,
     onEpisodeClick: (Int, AnimePlayListEpisode) -> Unit
 ) {
@@ -877,14 +870,22 @@ private fun EpisodeSection(
                 state = listState,
                 modifier = Modifier.onPreviewKeyEvent { event ->
                     if (event.type == KeyEventType.KeyDown && event.key == Key.DirectionUp) {
-                        onReturnToHero()
+                        onNavigateUp()
+                        return@onPreviewKeyEvent true
+                    }
+                    if (
+                        event.type == KeyEventType.KeyDown &&
+                        event.key == Key.DirectionDown &&
+                        onNavigateDown != null
+                    ) {
+                        onNavigateDown()
                         return@onPreviewKeyEvent true
                     }
                     if (consumeRapidDpad(event)) return@onPreviewKeyEvent true
                     false
                 },
-                contentPadding = PaddingValues(horizontal = 44.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(9.dp)
+                contentPadding = PaddingValues(horizontal = 44.dp, vertical = 7.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 items(
                     count = rangeEnd - rangeStart,
@@ -893,7 +894,6 @@ private fun EpisodeSection(
                     val episodeIndex = rangeStart + visibleEpisodeIndex
                     val episode = episodes[episodeIndex]
                     var episodeModifier = Modifier
-                        .focusProperties { applyUpAndDown(UpAndDownFocusProperties.DEFAULT) }
                         .onFocusChanged {
                             if (it.isFocused || it.hasFocus) {
                                 onEpisodeFocused(episodeIndex, episode)
@@ -1065,20 +1065,15 @@ private fun EpisodeTile(
     Surface(
         onClick = onClick,
         modifier = modifier
-            .height(50.dp)
-            .widthIn(min = 100.dp, max = 174.dp)
-            .graphicsLayer {
-                shadowElevation = if (focused) 9.dp.toPx() else 0f
-                ambientShadowColor = AulamaTvColors.Cyan.copy(alpha = 0.5f)
-                spotShadowColor = AulamaTvColors.Cyan.copy(alpha = 0.8f)
-            }
+            .height(44.dp)
+            .widthIn(min = 88.dp, max = 152.dp)
             .onFocusChanged { focused = it.isFocused || it.hasFocus },
         colors = ClickableSurfaceDefaults.colors(
             containerColor = Color(0x520A0E16),
-            focusedContainerColor = Color(0xFF163B42),
-            pressedContainerColor = Color(0xFF0F2D33)
+            focusedContainerColor = AulamaTvColors.Cyan,
+            pressedContainerColor = AulamaTvColors.Cyan.copy(alpha = 0.82f)
         ),
-        scale = ClickableSurfaceDefaults.scale(focusedScale = 1.07f),
+        scale = ClickableSurfaceDefaults.scale(focusedScale = 1.06f),
         shape = ClickableSurfaceDefaults.shape(shape),
         border = ClickableSurfaceDefaults.border(
             border = Border(
@@ -1090,28 +1085,35 @@ private fun EpisodeTile(
     ) {
         Box(
             modifier = Modifier
-                .height(50.dp)
-                .padding(horizontal = 15.dp),
+                .fillMaxSize()
+                .padding(horizontal = 12.dp, vertical = 4.dp),
             contentAlignment = Alignment.Center
         ) {
             Text(
                 text = localizedText(label),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
+                textAlign = TextAlign.Center,
                 style = MaterialTheme.typography.titleSmall.copy(
                     fontSize = 15.sp,
                     lineHeight = 19.sp,
                     fontWeight = FontWeight.SemiBold
                 ),
-                color = AulamaTvColors.TextPrimary
+                color = if (focused) Color(0xFF041014) else AulamaTvColors.TextPrimary,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = if (isCurrent) 4.dp else 0.dp)
             )
             if (isCurrent) {
                 Box(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
-                        .padding(bottom = 5.dp)
-                        .size(width = 24.dp, height = 3.dp)
-                        .background(AulamaTvColors.Cyan, RoundedCornerShape(2.dp))
+                        .padding(bottom = 2.dp)
+                        .size(width = 22.dp, height = 3.dp)
+                        .background(
+                            if (focused) Color(0xFF041014) else AulamaTvColors.Cyan,
+                            RoundedCornerShape(2.dp)
+                        )
                 )
             }
         }
@@ -1122,6 +1124,7 @@ private fun EpisodeTile(
 private fun RelatedAnimeSection(
     videos: List<AnimeData>,
     sourceId: String,
+    onNavigateUp: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -1129,7 +1132,7 @@ private fun RelatedAnimeSection(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(top = 14.dp, bottom = 8.dp)
+                .padding(top = 20.dp, bottom = 12.dp)
         ) {
             Row(
                 modifier = Modifier
@@ -1153,27 +1156,40 @@ private fun RelatedAnimeSection(
                     color = AulamaTvColors.TextSecondary
                 )
             }
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(10.dp))
             LazyRow(
-                contentPadding = PaddingValues(horizontal = 44.dp, vertical = 10.dp),
-                horizontalArrangement = Arrangement.spacedBy(14.dp)
+                modifier = Modifier.onPreviewKeyEvent { event ->
+                    if (event.type == KeyEventType.KeyDown && event.key == Key.DirectionUp) {
+                        onNavigateUp()
+                        true
+                    } else {
+                        false
+                    }
+                },
+                contentPadding = PaddingValues(horizontal = 38.dp, vertical = 2.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 items(count = videos.size, key = { videos[it].id }) { videoIndex ->
                     val video = videos[videoIndex]
-                    VideoCard(
-                        imageUrl = video.imageUrl,
-                        title = video.title,
-                        subTitle = video.currentEpisode,
-                        focusScale = 1.07f,
-                        modifier = Modifier
-                            .size(width = 152.dp, height = 210.dp)
-                            .run {
-                                if (videoIndex == 0) initiallyFocused() else restorableFocus()
-                            },
-                        onClick = {
-                            DetailActivity.startActivity(context, video.id, sourceId)
-                        }
-                    )
+                    Box(
+                        modifier = Modifier.size(width = 160.dp, height = 238.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        VideoCard(
+                            imageUrl = video.imageUrl,
+                            title = video.title,
+                            subTitle = video.currentEpisode,
+                            focusScale = 1.06f,
+                            modifier = Modifier
+                                .size(width = 148.dp, height = 222.dp)
+                                .run {
+                                    if (videoIndex == 0) initiallyFocused() else restorableFocus()
+                                },
+                            onClick = {
+                                DetailActivity.startActivity(context, video.id, sourceId)
+                            }
+                        )
+                    }
                 }
             }
         }

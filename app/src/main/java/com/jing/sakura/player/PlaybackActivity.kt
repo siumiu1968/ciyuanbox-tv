@@ -8,21 +8,10 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.fragment.app.FragmentActivity
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.lifecycleScope
-import androidx.lifecycle.repeatOnLifecycle
 import com.jing.sakura.R
-import com.jing.sakura.auth.AulamaAuthRepository
-import com.jing.sakura.remote.RemotePlaybackCoordinator
-import com.jing.sakura.repo.WebPageRepository
-import kotlinx.coroutines.launch
-import org.koin.android.ext.android.inject
 
 /** Hosts the official Android TV Leanback playback surface and controls. */
 class PlaybackActivity : FragmentActivity() {
-
-    private val authRepository: AulamaAuthRepository by inject()
-    private val webPageRepository: WebPageRepository by inject()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -44,28 +33,6 @@ class PlaybackActivity : FragmentActivity() {
                 )
                 .commit()
         }
-        observeRemotePlayback()
-    }
-
-    private fun observeRemotePlayback() {
-        lifecycleScope.launch {
-            repeatOnLifecycle(Lifecycle.State.STARTED) {
-                RemotePlaybackCoordinator.runWhileStarted(
-                    owner = this@PlaybackActivity,
-                    authRepository = authRepository,
-                    webPageRepository = webPageRepository
-                ) { nextPlayerArg ->
-                    switchRemotePlayback(nextPlayerArg)
-                    true
-                }
-            }
-        }
-    }
-
-    private fun switchRemotePlayback(nextPlayerArg: NavigateToPlayerArg) {
-        if (isFinishing || isDestroyed) return
-        startActivity(createIntent(this, nextPlayerArg))
-        finish()
     }
 
     companion object {

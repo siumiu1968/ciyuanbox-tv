@@ -16,6 +16,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -54,6 +55,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -137,27 +139,32 @@ private fun DeviceCodeLoginScreen(
     state: AuthUiState,
     onRetry: () -> Unit
 ) {
-    Box(
+    BoxWithConstraints(
         modifier = Modifier
             .fillMaxSize()
             .aulamaTvBackground()
-            .padding(horizontal = 72.dp, vertical = 48.dp)
     ) {
+        val compactLayout = maxWidth < 1500.dp || maxHeight < 850.dp
+        val horizontalPadding = if (compactLayout) 48.dp else 72.dp
+        val verticalPadding = if (compactLayout) 32.dp else 48.dp
+
         Row(
-            modifier = Modifier.fillMaxSize(),
-            horizontalArrangement = Arrangement.spacedBy(72.dp),
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = horizontalPadding, vertical = verticalPadding),
+            horizontalArrangement = Arrangement.spacedBy(if (compactLayout) 40.dp else 72.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(
                 modifier = Modifier.weight(0.82f),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                verticalArrangement = Arrangement.spacedBy(if (compactLayout) 10.dp else 16.dp)
             ) {
-                AulamaAnimeBrandMark(height = 56.dp)
-                Spacer(Modifier.size(6.dp))
+                AulamaAnimeBrandMark(height = if (compactLayout) 44.dp else 56.dp)
+                Spacer(Modifier.size(if (compactLayout) 2.dp else 6.dp))
                 Text(
                     text = "使用 Aulama ID 登入",
                     style = MaterialTheme.typography.titleMedium.copy(
-                        fontSize = 17.sp,
+                        fontSize = if (compactLayout) 15.sp else 17.sp,
                         fontWeight = FontWeight.Bold
                     ),
                     color = AulamaTvColors.Cyan
@@ -165,8 +172,8 @@ private fun DeviceCodeLoginScreen(
                 Text(
                     text = "將你嘅片庫\n帶到大螢幕",
                     style = MaterialTheme.typography.headlineLarge.copy(
-                        fontSize = 42.sp,
-                        lineHeight = 48.sp,
+                        fontSize = if (compactLayout) 34.sp else 42.sp,
+                        lineHeight = if (compactLayout) 40.sp else 48.sp,
                         fontWeight = FontWeight.Bold
                     ),
                     color = AulamaTvColors.TextPrimary
@@ -174,35 +181,41 @@ private fun DeviceCodeLoginScreen(
                 Text(
                     text = "收藏、觀看進度同個人化推薦會自動同步。",
                     style = MaterialTheme.typography.bodyLarge.copy(
-                        fontSize = 18.sp,
-                        lineHeight = 26.sp
+                        fontSize = if (compactLayout) 16.sp else 18.sp,
+                        lineHeight = if (compactLayout) 22.sp else 26.sp
                     ),
                     color = AulamaTvColors.TextSecondary
                 )
-                Spacer(Modifier.size(6.dp))
-                LoginStep(number = "1", text = "用手機掃描 QR Code")
-                LoginStep(number = "2", text = "確認你嘅 Aulama ID")
-                LoginStep(number = "3", text = "電視會自動完成登入")
+                Spacer(Modifier.size(if (compactLayout) 2.dp else 6.dp))
+                LoginStep(number = "1", text = "用手機掃描 QR Code", compact = compactLayout)
+                LoginStep(number = "2", text = "確認你嘅 Aulama ID", compact = compactLayout)
+                LoginStep(number = "3", text = "電視會自動完成登入", compact = compactLayout)
             }
 
-            LoginStatePanel(
-                state = state,
-                onRetry = onRetry,
-                modifier = Modifier.weight(1.18f)
-            )
+            Box(
+                modifier = Modifier.weight(1.18f),
+                contentAlignment = Alignment.Center
+            ) {
+                LoginStatePanel(
+                    state = state,
+                    onRetry = onRetry,
+                    compact = compactLayout,
+                    modifier = Modifier.widthIn(max = if (compactLayout) 700.dp else 760.dp)
+                )
+            }
         }
     }
 }
 
 @Composable
-private fun LoginStep(number: String, text: String) {
+private fun LoginStep(number: String, text: String, compact: Boolean) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Box(
             modifier = Modifier
-                .size(28.dp)
+                .size(if (compact) 26.dp else 28.dp)
                 .background(AulamaTvColors.Cyan.copy(alpha = 0.16f), CircleShape)
                 .border(1.dp, AulamaTvColors.Cyan.copy(alpha = 0.42f), CircleShape),
             contentAlignment = Alignment.Center
@@ -216,7 +229,9 @@ private fun LoginStep(number: String, text: String) {
         Text(
             text = text,
             color = AulamaTvColors.TextSecondary,
-            style = MaterialTheme.typography.bodyLarge.copy(fontSize = 17.sp)
+            style = MaterialTheme.typography.bodyLarge.copy(
+                fontSize = if (compact) 15.sp else 17.sp
+            )
         )
     }
 }
@@ -225,6 +240,7 @@ private fun LoginStep(number: String, text: String) {
 private fun LoginStatePanel(
     state: AuthUiState,
     onRetry: () -> Unit,
+    compact: Boolean,
     modifier: Modifier = Modifier
 ) {
     val code = when (state) {
@@ -242,16 +258,18 @@ private fun LoginStatePanel(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .widthIn(max = 720.dp)
             .clip(RoundedCornerShape(14.dp))
             .background(AulamaTvColors.Surface.copy(alpha = 0.92f))
             .border(BorderStroke(1.dp, AulamaTvColors.Outline), RoundedCornerShape(14.dp))
-            .padding(horizontal = 32.dp, vertical = 30.dp),
+            .padding(
+                horizontal = if (compact) 24.dp else 32.dp,
+                vertical = if (compact) 22.dp else 30.dp
+            ),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+        verticalArrangement = Arrangement.spacedBy(if (compact) 12.dp else 16.dp)
     ) {
         if (code != null) {
-            DeviceCodeContent(code, remaining)
+            DeviceCodeContent(code, remaining, compact)
         }
 
         val status: String? = when (state) {
@@ -287,7 +305,7 @@ private fun LoginStatePanel(
 }
 
 @Composable
-private fun DeviceCodeContent(code: DeviceCode, remainingSeconds: Long) {
+private fun DeviceCodeContent(code: DeviceCode, remainingSeconds: Long, compact: Boolean) {
     val approvalUrl = remember(code.verificationUri, code.userCode) {
         "${code.verificationUri}?code=${code.userCode}"
     }
@@ -307,7 +325,7 @@ private fun DeviceCodeContent(code: DeviceCode, remainingSeconds: Long) {
     }
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(26.dp),
+        horizontalArrangement = Arrangement.spacedBy(if (compact) 20.dp else 26.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         AsyncImage(
@@ -315,9 +333,9 @@ private fun DeviceCodeContent(code: DeviceCode, remainingSeconds: Long) {
             contentDescription = "掃描 QR Code 登入",
             contentScale = ContentScale.Fit,
             modifier = Modifier
-                .size(178.dp)
+                .size(if (compact) 148.dp else 178.dp)
                 .background(Color.White, RoundedCornerShape(10.dp))
-                .padding(10.dp)
+                .padding(if (compact) 8.dp else 10.dp)
         )
         Column(
             modifier = Modifier.weight(1f),
@@ -325,22 +343,34 @@ private fun DeviceCodeContent(code: DeviceCode, remainingSeconds: Long) {
         ) {
             Text(
                 text = "掃描或輸入裝置碼",
-                style = MaterialTheme.typography.titleMedium.copy(fontSize = 18.sp),
+                style = MaterialTheme.typography.titleMedium.copy(
+                    fontSize = if (compact) 16.sp else 18.sp
+                ),
                 color = AulamaTvColors.TextSecondary
             )
             Text(
                 text = code.userCode,
-                fontSize = 42.sp,
+                fontSize = when {
+                    code.userCode.length > 10 -> if (compact) 26.sp else 32.sp
+                    code.userCode.length > 8 -> if (compact) 30.sp else 36.sp
+                    else -> if (compact) 36.sp else 42.sp
+                },
+                lineHeight = if (compact) 40.sp else 46.sp,
                 fontWeight = FontWeight.Bold,
                 letterSpacing = 0.sp,
                 color = AulamaTvColors.TextPrimary,
-                maxLines = 1
+                maxLines = 1,
+                softWrap = false
             )
             Text(
                 text = code.verificationUri,
-                style = MaterialTheme.typography.bodyLarge.copy(fontSize = 16.sp),
+                style = MaterialTheme.typography.bodyLarge.copy(
+                    fontSize = if (compact) 14.sp else 16.sp,
+                    lineHeight = if (compact) 18.sp else 21.sp
+                ),
                 color = AulamaTvColors.Cyan,
-                maxLines = 1
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
             )
             Row(verticalAlignment = Alignment.CenterVertically) {
                 androidx.tv.material3.Icon(

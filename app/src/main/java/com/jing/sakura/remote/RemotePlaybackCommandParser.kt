@@ -24,10 +24,22 @@ object RemotePlaybackCommandParser {
         val episodeIndex = command.get("episodeIndex")
             ?.takeIf { it.isJsonPrimitive && it.asJsonPrimitive.isNumber }
             ?.asInt
+        val currentTimeSeconds = command.get("currentTimeSeconds")
+            ?.takeIf { it.isJsonPrimitive && it.asJsonPrimitive.isNumber }
+            ?.asDouble
         if (animeId.isBlank() || sourceId.isBlank() || episodeIndex == null || episodeIndex < 0) {
             return RemotePlaybackCommand.Invalid(id)
         }
-        return RemotePlaybackCommand.OpenAnime(id, animeId, sourceId, episodeIndex)
+        if (currentTimeSeconds != null && (!currentTimeSeconds.isFinite() || currentTimeSeconds < 0.0)) {
+            return RemotePlaybackCommand.Invalid(id)
+        }
+        return RemotePlaybackCommand.OpenAnime(
+            id = id,
+            animeId = animeId,
+            sourceId = sourceId,
+            episodeIndex = episodeIndex,
+            currentTimeSeconds = currentTimeSeconds
+        )
     }
 
     private fun com.google.gson.JsonObject.string(name: String): String =

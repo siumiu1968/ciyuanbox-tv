@@ -213,13 +213,13 @@ private fun DiscoverGrid(
             state = gridState,
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(
-                start = 40.dp,
-                end = 40.dp,
+                start = 36.dp,
+                end = 36.dp,
                 top = 18.dp,
                 bottom = 36.dp
             ),
-            horizontalArrangement = Arrangement.spacedBy(24.dp),
-            verticalArrangement = Arrangement.spacedBy(24.dp)
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             item(
                 key = "discover-filter-panel",
@@ -320,11 +320,7 @@ private fun DiscoverGrid(
     }
 
     LaunchedEffect(pagingItems.itemCount) {
-        val requester = if (pagingItems.itemCount > 0) {
-            firstCardFocusRequester
-        } else {
-            groupFocusRequesters.firstOrNull() ?: applyFocusRequester
-        }
+        val requester = groupFocusRequesters.firstOrNull() ?: applyFocusRequester
         kotlin.runCatching { requester.requestFocus() }
     }
 }
@@ -344,8 +340,8 @@ private fun DiscoverFilterPanel(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(bottom = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp)
+            .padding(bottom = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Row(
             modifier = Modifier
@@ -426,28 +422,28 @@ private fun FilterOptionRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(54.dp),
+            .height(48.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
             text = localizedText(group.name),
-            modifier = Modifier.width(124.dp),
+            modifier = Modifier.width(112.dp),
             color = AulamaTvColors.TextSecondary,
             textAlign = TextAlign.Center,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             style = MaterialTheme.typography.titleMedium.copy(
-                fontSize = 17.sp,
-                lineHeight = 22.sp,
+                fontSize = 16.sp,
+                lineHeight = 20.sp,
                 fontWeight = FontWeight.Medium
             )
         )
-        Spacer(Modifier.width(10.dp))
+        Spacer(Modifier.width(8.dp))
         LazyRow(
             state = rowState,
             modifier = Modifier.weight(1f),
             contentPadding = PaddingValues(horizontal = 4.dp, vertical = 3.dp),
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             itemsIndexed(
@@ -488,7 +484,7 @@ private fun FilterOption(
 ) {
     var focused by remember { mutableStateOf(false) }
     val scale by animateFloatAsState(
-        targetValue = if (focused) 1.045f else 1f,
+        targetValue = if (focused) 1.06f else 1f,
         animationSpec = tween(durationMillis = 170),
         label = "discover-filter-scale"
     )
@@ -501,8 +497,8 @@ private fun FilterOption(
     Surface(
         onClick = onClick,
         modifier = modifier
-            .widthIn(min = 96.dp, max = 228.dp)
-            .height(48.dp)
+            .widthIn(min = 88.dp, max = 196.dp)
+            .height(42.dp)
             .onFocusChanged { focused = it.isFocused || it.hasFocus }
             .graphicsLayer {
                 scaleX = scale
@@ -520,7 +516,7 @@ private fun FilterOption(
                 shape = AulamaCardShape
             ),
             focusedBorder = Border(
-                BorderStroke(2.5.dp, accent),
+                BorderStroke(3.dp, accent),
                 shape = AulamaCardShape
             )
         ),
@@ -542,20 +538,20 @@ private fun FilterOption(
                     tint = textColor,
                     modifier = Modifier
                         .align(Alignment.CenterStart)
-                        .padding(start = 12.dp)
-                        .size(17.dp)
+                        .padding(start = 10.dp)
+                        .size(16.dp)
                 )
             }
             Text(
                 text = text,
-                modifier = Modifier.padding(horizontal = 34.dp),
+                modifier = Modifier.padding(horizontal = 30.dp),
                 color = textColor,
                 textAlign = TextAlign.Center,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 style = MaterialTheme.typography.titleMedium.copy(
-                    fontSize = 16.sp,
-                    lineHeight = 20.sp,
+                    fontSize = 15.sp,
+                    lineHeight = 18.sp,
                     fontWeight = FontWeight.SemiBold
                 )
             )

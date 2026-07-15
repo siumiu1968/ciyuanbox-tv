@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.jing.sakura.auth.AulamaAuthRepository
 import com.jing.sakura.auth.FavoritePayload
+import com.jing.sakura.auth.TvHistoryItem
 import com.jing.sakura.data.AnimeDetailPageData
 import com.jing.sakura.data.Resource
 import com.jing.sakura.repo.WebPageRepository
@@ -58,26 +59,43 @@ class DetailPageViewModel constructor(
         loadDataJob = viewModelScope.launch(Dispatchers.IO) {
             _detailPageData.emit(Resource.Loading)
             try {
-                val historyJob = async {
+                val localHistoryJob = async {
                     videoHistoryDao.queryLastHistoryOfAnimeId(animeId, sourceId)
                 }
-                val data = repository.fetchDetailPage(animeId, sourceId)
-                val history = historyJob.await()
-                if (history != null) {
-                    var position = data.lastPlayEpisodePosition
-
-                    out@ for ((playlistIndex, playList) in data.playLists.withIndex()) {
-                        for ((epIndex, ep) in playList.episodeList.withIndex()) {
-                            if (ep.episodeId == history.episodeId) {
-                                position = Pair(playlistIndex, epIndex)
-                                break@out
-                            }
+                val cloudHistoryJob = async {
+                    runCatching { authRepository.fetchTvLibrary() }
+                        .getOrNull()
+                        ?.historyItems
+                        ?.firstOrNull { item ->
+                            (item.animeId == animeId || item.anime.id == animeId) &&
+                                (item.sourceTypeId.isBlank() || item.sourceTypeId == sourceId)
                         }
-                    }
-                    _detailPageData.emit(Resource.Success(data.copy(lastPlayEpisodePosition = position)))
-                } else {
-                    _detailPageData.emit(Resource.Success(data))
                 }
+                val cloudDetailJob = async {
+                    runCatching { authRepository.fetchTvAnimeDetail(animeId) }.getOrNull()
+                }
+                val sourceData = repository.fetchDetailPage(animeId, sourceId)
+                val cloudDetail = cloudDetailJob.await()
+                val data = sourceData.copy(
+                    otherAnimeList = cloudDetail?.related
+                        ?.takeIf(List<*>::isNotEmpty)
+                        ?: sourceData.otherAnimeList
+                )
+                val localHistory = localHistoryJob.await()
+                val remoteHistory = cloudHistoryJob.await()?.toLocalHistory(data)
+                val history = listOfNotNull(localHistory, remoteHistory)
+                    .maxByOrNull(VideoHistoryEntity::updateTime)
+                if (remoteHistory != null &&
+                    (localHistory == null || remoteHistory.updateTime > localHistory.updateTime)
+                ) {
+                    videoHistoryDao.saveHistory(remoteHistory)
+                }
+                history?.let { _latestProgress.emit(Resource.Success(it)) }
+                _detailPageData.emit(
+                    Resource.Success(
+                        data.copy(lastPlayEpisodePosition = data.positionFor(history?.episodeId))
+                    )
+                )
             } catch (ex: Exception) {
                 if (ex is CancellationException) {
                     throw ex
@@ -183,6 +201,49 @@ class DetailPageViewModel constructor(
         }.orEmpty()
         return entry.substringAfter('：', entry.substringAfter(':', "")).trim()
     }
+
+    private fun TvHistoryItem.toLocalHistory(detail: AnimeDetailPageData): VideoHistoryEntity? {
+        val indexedPlaylist = detail.playLists
+            .getOrNull(detail.defaultPlayListIndex)
+            ?.takeIf { it.episodeList.isNotEmpty() }
+            ?: detail.playLists.firstOrNull { it.defaultPlayList && it.episodeList.isNotEmpty() }
+            ?: detail.playLists.firstOrNull { it.episodeList.isNotEmpty() }
+            ?: return null
+        val exactEpisode = detail.playLists
+            .asSequence()
+            .flatMap { it.episodeList.asSequence() }
+            .firstOrNull { it.episodeId == episodeId }
+        val mappedEpisode = exactEpisode ?: indexedPlaylist.episodeList.getOrNull(
+            episodeIndex.coerceIn(0, indexedPlaylist.episodeList.lastIndex)
+        ) ?: return null
+        return VideoHistoryEntity(
+            animeId = animeId.ifBlank { anime.id },
+            animeName = anime.title.ifBlank { detail.animeName },
+            episodeId = mappedEpisode.episodeId,
+            lastEpisodeName = episodeLabel.ifBlank { mappedEpisode.episode },
+            updateTime = updatedAtEpochMs.coerceAtLeast(1L),
+            lastPlayTime = currentTimeSeconds.toPositionMs(),
+            coverUrl = anime.imageUrl.ifBlank { detail.imageUrl },
+            videoDuration = durationSeconds.toPositionMs(),
+            sourceId = sourceId
+        )
+    }
+
+    private fun AnimeDetailPageData.positionFor(episodeId: String?): Pair<Int, Int> {
+        if (episodeId.isNullOrBlank()) return lastPlayEpisodePosition
+        playLists.forEachIndexed { playlistIndex, playlist ->
+            val episodeIndex = playlist.episodeList.indexOfFirst { it.episodeId == episodeId }
+            if (episodeIndex >= 0) return playlistIndex to episodeIndex
+        }
+        return lastPlayEpisodePosition
+    }
+
+    private fun Double.toPositionMs(): Long =
+        takeIf { it.isFinite() && it > 0.0 }
+            ?.times(1_000.0)
+            ?.coerceAtMost(Long.MAX_VALUE.toDouble())
+            ?.toLong()
+            ?: 0L
 
     companion object {
         private val RATING_PATTERN = Regex("""\d+(?:\.\d+)?""")

@@ -7,7 +7,8 @@ sealed interface RemotePlaybackCommand {
         override val id: String,
         val animeId: String,
         val sourceId: String,
-        val episodeIndex: Int
+        val episodeIndex: Int,
+        val currentTimeSeconds: Double? = null
     ) : RemotePlaybackCommand
 
     data class Invalid(override val id: String) : RemotePlaybackCommand

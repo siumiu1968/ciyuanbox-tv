@@ -15,6 +15,7 @@ data class HeroPreviewHistory(
     val animeId: String,
     val sourceId: String,
     val episodeId: String,
+    val episodeIndex: Int,
     val positionMs: Long,
     val updatedAtMs: Long
 )
