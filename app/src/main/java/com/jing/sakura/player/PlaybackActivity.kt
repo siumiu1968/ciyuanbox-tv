@@ -3,6 +3,7 @@ package com.jing.sakura.player
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
+import android.view.KeyEvent
 import android.view.WindowManager
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
@@ -33,6 +34,13 @@ class PlaybackActivity : FragmentActivity() {
                 )
                 .commit()
         }
+    }
+
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        val playerFragment = supportFragmentManager.findFragmentByTag(TAG_PLAYER)
+            as? AnimePlayerFragment
+        if (playerFragment?.handlePlaybackKeyEvent(event) == true) return true
+        return super.dispatchKeyEvent(event)
     }
 
     companion object {

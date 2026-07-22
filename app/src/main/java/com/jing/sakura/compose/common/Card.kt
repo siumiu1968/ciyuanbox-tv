@@ -152,16 +152,16 @@ fun VideoCard(
                         color = artworkAccent
                     )
                 }
-                Text(
+                AutoMarqueeText(
                     text = displayTitle,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
                     style = MaterialTheme.typography.titleMedium.copy(
                         fontSize = 16.sp,
                         lineHeight = 19.sp,
                         fontWeight = FontWeight.SemiBold
                     ),
-                    color = AulamaTvColors.TextPrimary
+                    color = AulamaTvColors.TextPrimary,
+                    enabled = focused,
+                    modifier = Modifier.fillMaxWidth()
                 )
             }
         }

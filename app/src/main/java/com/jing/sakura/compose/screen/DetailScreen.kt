@@ -500,7 +500,7 @@ private fun DetailHero(
                     style = MaterialTheme.typography.displaySmall.copy(
                         fontSize = 37.sp,
                         lineHeight = 43.sp,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.ExtraBold
                     ),
                     color = accent
                 )

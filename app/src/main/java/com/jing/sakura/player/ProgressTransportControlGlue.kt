@@ -25,8 +25,12 @@ class ProgressTransportControlGlue<T : PlayerAdapter>(
     private val updateProgress: () -> Unit,
     private val chooseEpisode: () -> Unit,
     private val playPreviousEpisode: () -> Unit,
-    private val playNextEpisode: () -> Unit
+    private val playNextEpisode: () -> Unit,
+    private val toggleFast4k: () -> Boolean
 ) : PlaybackTransportControlGlue<T>(context, impl) {
+
+    private val appContext = context
+    private var secondaryActionsAdapter: ArrayObjectAdapter? = null
 
     private val previousAction = SkipPreviousAction(context)
     private val rewindAction = RewindAction(context)
@@ -37,6 +41,12 @@ class ProgressTransportControlGlue<T : PlayerAdapter>(
         context.getString(R.string.player_episode_list),
         null,
         ContextCompat.getDrawable(context, R.drawable.play_list)
+    )
+    private val fast4kAction = Action(
+        ACTION_FAST_4K,
+        context.getString(R.string.player_fast_4k),
+        null,
+        ContextCompat.getDrawable(context, R.drawable.ic_player_4k_off)
     )
 
     override fun onCreatePrimaryActions(primaryActionsAdapter: ArrayObjectAdapter) {
@@ -49,7 +59,9 @@ class ProgressTransportControlGlue<T : PlayerAdapter>(
 
     override fun onCreateSecondaryActions(secondaryActionsAdapter: ArrayObjectAdapter) {
         super.onCreateSecondaryActions(secondaryActionsAdapter)
+        this.secondaryActionsAdapter = secondaryActionsAdapter
         secondaryActionsAdapter.add(episodeListAction)
+        secondaryActionsAdapter.add(fast4kAction)
     }
 
     override fun onUpdateProgress() {
@@ -64,6 +76,7 @@ class ProgressTransportControlGlue<T : PlayerAdapter>(
             fastForwardAction -> seekBy(SEEK_INCREMENT_MS)
             nextAction -> playNextEpisode()
             episodeListAction -> chooseEpisode()
+            fast4kAction -> updateFast4kAction(toggleFast4k())
             is PlayPauseAction -> if (!onPlayPauseAction(action)) {
                 super.onActionClicked(action)
             }
@@ -122,8 +135,23 @@ class ProgressTransportControlGlue<T : PlayerAdapter>(
         playerAdapter.seekTo(if (duration > 0L) target.coerceAtMost(duration) else target)
     }
 
+    fun updateFast4kAction(enabled: Boolean) {
+        fast4kAction.label1 = appContext.getString(
+            if (enabled) R.string.player_fast_4k_on else R.string.player_fast_4k
+        )
+        fast4kAction.icon = ContextCompat.getDrawable(
+            appContext,
+            if (enabled) R.drawable.ic_player_4k_on else R.drawable.ic_player_4k_off
+        )
+        secondaryActionsAdapter?.let { adapter ->
+            val index = adapter.indexOf(fast4kAction)
+            if (index >= 0) adapter.notifyArrayItemRangeChanged(index, 1)
+        }
+    }
+
     companion object {
         private const val ACTION_EPISODE_LIST = 10L
+        private const val ACTION_FAST_4K = 11L
         private const val SEEK_INCREMENT_MS = 10_000L
     }
 }

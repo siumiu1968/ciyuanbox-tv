@@ -15,8 +15,8 @@ android {
         applicationId = "com.codex.ciyuanbox.tv"
         minSdk = 21
         targetSdk = 34
-        versionCode = 1011
-        versionName = "2.8.1"
+        versionCode = 1012
+        versionName = "2.9.0"
 
     }
     packaging {
@@ -120,6 +120,7 @@ dependencies {
     implementation("androidx.media3:media3-ui-leanback:$media3Version")
     implementation("androidx.media3:media3-ui:$media3Version")
     implementation("androidx.media3:media3-datasource-okhttp:$media3Version")
+    implementation("androidx.media3:media3-effect:$media3Version")
     implementation(files("libs/mpv-android-lib-v0.1.10.aar"))
 
 

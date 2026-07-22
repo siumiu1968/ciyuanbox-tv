@@ -3,11 +3,11 @@
 package com.jing.sakura.compose.screen
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -34,7 +34,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
@@ -59,8 +58,6 @@ import androidx.tv.material3.Text
 import coil.compose.AsyncImage
 import com.jing.sakura.R
 import com.jing.sakura.compose.common.AulamaCardShape
-import com.jing.sakura.compose.common.AulamaFocusScale
-import com.jing.sakura.compose.common.AulamaPageHeader
 import com.jing.sakura.compose.common.AulamaTvColors
 import com.jing.sakura.compose.common.ErrorTip
 import com.jing.sakura.compose.common.Loading
@@ -85,15 +82,12 @@ fun TimelineScreen(viewModel: TimelineViewModel) {
             .aulamaTvBackground()
     ) {
         when (timeline) {
-            is Resource.Success -> Column(Modifier.fillMaxSize()) {
-                AulamaPageHeader(title = stringResource(R.string.timeline_title))
-                TimeLine(
-                    data = timeline.data,
-                    sourceId = viewModel.sourceId,
-                    synopses = synopses,
-                    onAnimeHighlighted = viewModel::loadSynopsis
-                )
-            }
+            is Resource.Success -> TimeLine(
+                data = timeline.data,
+                sourceId = viewModel.sourceId,
+                synopses = synopses,
+                onAnimeHighlighted = viewModel::loadSynopsis
+            )
 
             is Resource.Error -> ErrorTip(message = timeline.message) {
                 viewModel.loadData()
@@ -134,17 +128,23 @@ fun TimeLine(
     val firstPosterFocusRequester = remember(selectedDayIndex) { FocusRequester() }
     val programmeRowState = rememberLazyListState()
     val context = LocalContext.current
-    val accent = highlightedAnime?.let { rememberArtworkAccent(it.imageUrl) }
+    val extractedAccent = highlightedAnime?.let { rememberArtworkAccent(it.imageUrl) }
         ?: Color.Transparent
+    val accent by animateColorAsState(
+        targetValue = extractedAccent,
+        animationSpec = tween(durationMillis = 360, easing = FastOutSlowInEasing),
+        label = "timeline-accent"
+    )
 
     Box(modifier = Modifier.fillMaxSize()) {
         TimelineBackdrop(anime = highlightedAnime, accent = accent)
         Column(modifier = Modifier.fillMaxSize()) {
+            Spacer(Modifier.height(8.dp))
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(54.dp)
-                    .padding(horizontal = 36.dp),
+                    .padding(horizontal = 34.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -174,7 +174,7 @@ fun TimeLine(
                 accent = accent,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(184.dp)
+                    .height(160.dp)
             )
 
             TimelineStripHeader(
@@ -195,9 +195,9 @@ fun TimeLine(
                     state = programmeRowState,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(236.dp),
-                    contentPadding = PaddingValues(horizontal = 36.dp, vertical = 10.dp),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                        .weight(1f),
+                    contentPadding = PaddingValues(horizontal = 34.dp, vertical = 10.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     items(
@@ -209,12 +209,12 @@ fun TimeLine(
                     ) { index ->
                         val anime = selectedDay.second[index]
                         Box(
-                            modifier = Modifier.size(width = 156.dp, height = 220.dp),
+                            modifier = Modifier.size(width = 170.dp, height = 238.dp),
                             contentAlignment = Alignment.Center
                         ) {
                             VideoCard(
                                 modifier = Modifier
-                                    .size(width = 146.dp, height = 206.dp)
+                                    .size(width = 160.dp, height = 226.dp)
                                     .focusProperties {
                                         up = dayFocusRequesters[selectedDayIndex]
                                     }
@@ -228,7 +228,7 @@ fun TimeLine(
                                 imageUrl = anime.imageUrl,
                                 title = anime.title,
                                 subTitle = anime.currentEpisode,
-                                focusScale = AulamaFocusScale,
+                                focusScale = 1.04f,
                                 onFocused = { highlightedAnimeIndex = index },
                                 onClick = {
                                     DetailActivity.startActivity(context, anime.id, sourceId)
@@ -259,18 +259,16 @@ fun TimeLine(
 private fun TimelineBackdrop(anime: AnimeData?, accent: Color) {
     Box(modifier = Modifier.fillMaxSize()) {
         AnimatedContent(
-            targetState = anime,
+            targetState = anime?.imageUrl.orEmpty(),
             transitionSpec = {
-                (fadeIn(tween(240)) + slideInHorizontally(tween(240)) { it / 14 })
-                    .togetherWith(
-                        fadeOut(tween(180)) + slideOutHorizontally(tween(180)) { -it / 18 }
-                    )
+                fadeIn(tween(360, easing = FastOutSlowInEasing))
+                    .togetherWith(fadeOut(tween(220, easing = FastOutSlowInEasing)))
             },
             label = "timeline-backdrop"
-        ) { selected ->
-            if (selected != null) {
+        ) { imageUrl ->
+            if (imageUrl.isNotBlank()) {
                 val request = rememberPosterImageRequest(
-                    imageUrl = selected.imageUrl,
+                    imageUrl = imageUrl,
                     widthPx = 960,
                     heightPx = 1360
                 )
@@ -283,8 +281,8 @@ private fun TimelineBackdrop(anime: AnimeData?, accent: Color) {
                         .fillMaxSize()
                         .graphicsLayer {
                             alpha = 0.76f
-                            scaleX = 1.34f
-                            scaleY = 1.34f
+                            scaleX = 1.42f
+                            scaleY = 1.42f
                             transformOrigin = TransformOrigin(1f, 0f)
                         }
                 )
@@ -295,17 +293,20 @@ private fun TimelineBackdrop(anime: AnimeData?, accent: Color) {
                 .fillMaxSize()
                 .background(
                     Brush.radialGradient(
-                        colors = listOf(accent.copy(alpha = 0.18f), Color.Transparent),
-                        radius = 760f
+                        colors = listOf(accent.copy(alpha = 0.20f), Color.Transparent),
+                        radius = 820f
                     )
                 )
                 .background(
                     Brush.horizontalGradient(
                         colorStops = arrayOf(
                             0f to AulamaTvColors.Background,
-                            0.40f to AulamaTvColors.Background,
-                            0.55f to AulamaTvColors.Background.copy(alpha = 0.90f),
-                            0.72f to AulamaTvColors.Background.copy(alpha = 0.34f),
+                            0.42f to AulamaTvColors.Background,
+                            0.52f to AulamaTvColors.Background.copy(alpha = 0.96f),
+                            0.60f to AulamaTvColors.Background.copy(alpha = 0.76f),
+                            0.69f to AulamaTvColors.Background.copy(alpha = 0.42f),
+                            0.78f to AulamaTvColors.Background.copy(alpha = 0.14f),
+                            0.88f to AulamaTvColors.Background.copy(alpha = 0.03f),
                             1f to Color.Transparent
                         )
                     )
@@ -313,9 +314,8 @@ private fun TimelineBackdrop(anime: AnimeData?, accent: Color) {
                 .background(
                     Brush.verticalGradient(
                         colorStops = arrayOf(
-                            0f to AulamaTvColors.Background.copy(alpha = 0.22f),
-                            0.48f to Color.Transparent,
-                            0.76f to AulamaTvColors.Background.copy(alpha = 0.88f),
+                            0f to AulamaTvColors.Background.copy(alpha = 0.32f),
+                            0.58f to Color.Transparent,
                             1f to AulamaTvColors.Background
                         )
                     )
@@ -336,10 +336,8 @@ private fun TimelineFocusSummary(
         targetState = anime,
         modifier = modifier,
         transitionSpec = {
-            (fadeIn(tween(240)) + slideInHorizontally(tween(240)) { it / 18 })
-                .togetherWith(
-                    fadeOut(tween(180)) + slideOutHorizontally(tween(180)) { -it / 24 }
-                )
+            fadeIn(tween(240, easing = FastOutSlowInEasing))
+                .togetherWith(fadeOut(tween(150, easing = FastOutSlowInEasing)))
         },
         label = "timeline-summary"
     ) { selected ->
@@ -360,7 +358,7 @@ private fun TimelineFocusSummary(
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(horizontal = 42.dp, vertical = 14.dp),
+                    .padding(horizontal = 42.dp, vertical = 10.dp),
                 verticalArrangement = Arrangement.Center
             ) {
                 Spacer(
@@ -368,40 +366,40 @@ private fun TimelineFocusSummary(
                         .size(width = 34.dp, height = 3.dp)
                         .background(accent, AulamaCardShape)
                 )
-                Spacer(Modifier.height(9.dp))
+                Spacer(Modifier.height(5.dp))
                 Text(
                     text = title,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     style = MaterialTheme.typography.headlineMedium.copy(
                         fontSize = 30.sp,
-                        lineHeight = 35.sp,
-                        fontWeight = FontWeight.SemiBold
+                        lineHeight = 34.sp,
+                        fontWeight = FontWeight.ExtraBold
                     ),
-                    color = AulamaTvColors.TextPrimary,
+                    color = accent,
                     modifier = Modifier.fillMaxWidth(0.52f)
                 )
-                Spacer(Modifier.height(5.dp))
+                Spacer(Modifier.height(2.dp))
                 Text(
                     text = localizedText("播出時間  ·  $airInfo"),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     style = MaterialTheme.typography.titleSmall.copy(
-                        fontSize = 15.sp,
-                        lineHeight = 19.sp,
+                        fontSize = 14.sp,
+                        lineHeight = 18.sp,
                         fontWeight = FontWeight.Medium
                     ),
                     color = accent,
                     modifier = Modifier.fillMaxWidth(0.54f)
                 )
-                Spacer(Modifier.height(7.dp))
+                Spacer(Modifier.height(4.dp))
                 Text(
                     text = description,
                     maxLines = 3,
                     overflow = TextOverflow.Ellipsis,
                     style = MaterialTheme.typography.bodyMedium.copy(
-                        fontSize = 16.sp,
-                        lineHeight = 21.sp
+                        fontSize = 15.sp,
+                        lineHeight = 19.sp
                     ),
                     color = AulamaTvColors.TextSecondary,
                     modifier = Modifier.fillMaxWidth(0.56f)
@@ -416,7 +414,7 @@ private fun TimelineStripHeader(count: Int, isToday: Boolean) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(38.dp)
+            .height(40.dp)
             .padding(horizontal = 42.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {

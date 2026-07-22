@@ -1,6 +1,7 @@
 package com.jing.sakura.player
 
 import android.graphics.Color
+import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import android.view.View
@@ -23,8 +24,10 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.okhttp.OkHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.SeekParameters
+import androidx.media3.exoplayer.analytics.AnalyticsListener
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
+import androidx.media3.effect.LanczosResample
 import androidx.media3.ui.leanback.LeanbackPlayerAdapter
 import com.jing.sakura.R
 import com.jing.sakura.SakuraApplication
@@ -54,6 +57,21 @@ class AnimePlayerFragment : VideoSupportFragment() {
 
     private var player: ExoPlayer? = null
     private var glue: ProgressTransportControlGlue<LeanbackPlayerAdapter>? = null
+    private var fast4kEnabled = false
+
+    private val analyticsListener = object : AnalyticsListener {
+        override fun onDroppedVideoFrames(
+            eventTime: AnalyticsListener.EventTime,
+            droppedFrames: Int,
+            elapsedMs: Long
+        ) {
+            if (fast4kEnabled && droppedFrames >= FAST_4K_DROPPED_FRAME_LIMIT) {
+                view?.post {
+                    disableFast4k(R.string.player_fast_4k_overload)
+                }
+            }
+        }
+    }
 
     private val playerListener = object : Player.Listener {
         override fun onPlaybackStateChanged(playbackState: Int) {
@@ -79,6 +97,16 @@ class AnimePlayerFragment : VideoSupportFragment() {
 
         override fun onPlayerError(error: PlaybackException) {
             Log.e(TAG, "playerError=${error.errorCodeName}: ${error.message}", error)
+            if (fast4kEnabled && error.isVideoEffectFailure()) {
+                val resumePosition = player?.currentPosition?.coerceAtLeast(0L) ?: 0L
+                disableFast4k(R.string.player_fast_4k_overload)
+                player?.apply {
+                    prepare()
+                    if (resumePosition > 0L) seekTo(resumePosition)
+                    play()
+                }
+                return
+            }
             progressBarManager.hide()
             viewModel.stopSaveHistory()
             glue?.subtitle = getString(R.string.player_retry_hint)
@@ -207,6 +235,7 @@ class AnimePlayerFragment : VideoSupportFragment() {
             .apply {
                 setSeekParameters(SeekParameters.CLOSEST_SYNC)
                 addListener(playerListener)
+                addAnalyticsListener(analyticsListener)
                 prepareGlue(this)
                 playWhenReady = true
             }
@@ -240,7 +269,8 @@ class AnimePlayerFragment : VideoSupportFragment() {
             },
             chooseEpisode = ::openEpisodeChooser,
             playPreviousEpisode = viewModel::playPreviousEpisodeIfExists,
-            playNextEpisode = viewModel::playNextEpisodeAdjacent
+            playNextEpisode = viewModel::playNextEpisodeAdjacent,
+            toggleFast4k = ::toggleFast4k
         ).apply {
             title = viewModel.anime.animeName
             subtitle = viewModel.playerSubTitle.value
@@ -263,12 +293,65 @@ class AnimePlayerFragment : VideoSupportFragment() {
     private fun destroyPlayer() {
         player?.let {
             it.removeListener(playerListener)
+            it.removeAnalyticsListener(analyticsListener)
             it.pause()
             it.release()
         }
         player = null
         glue = null
+        fast4kEnabled = false
     }
+
+    private fun toggleFast4k(): Boolean {
+        if (fast4kEnabled) {
+            disableFast4k(R.string.player_fast_4k_disabled)
+            return false
+        }
+        val localPlayer = player ?: return false
+        val targetSize = fast4kTargetSize()
+        if (targetSize == null) {
+            requireContext().showShortToast(getString(R.string.player_fast_4k_requires_4k_output))
+            return false
+        }
+        return runCatching {
+            localPlayer.setVideoEffects(
+                listOf(LanczosResample.scaleToFit(targetSize.first, targetSize.second))
+            )
+            fast4kEnabled = true
+            requireContext().showShortToast(getString(R.string.player_fast_4k_enabled))
+            true
+        }.getOrElse { error ->
+            Log.w(TAG, "Unable to enable fast 4K", error)
+            localPlayer.setVideoEffects(emptyList())
+            requireContext().showShortToast(getString(R.string.player_fast_4k_unavailable))
+            false
+        }
+    }
+
+    private fun disableFast4k(messageRes: Int) {
+        if (!fast4kEnabled) return
+        fast4kEnabled = false
+        player?.setVideoEffects(emptyList())
+        glue?.updateFast4kAction(false)
+        requireContext().showShortToast(getString(messageRes))
+    }
+
+    private fun fast4kTargetSize(): Pair<Int, Int>? {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return null
+        @Suppress("DEPRECATION")
+        val mode = requireActivity().windowManager.defaultDisplay.mode
+        val longEdge = maxOf(mode.physicalWidth, mode.physicalHeight)
+        val shortEdge = minOf(mode.physicalWidth, mode.physicalHeight)
+        return if (longEdge >= FAST_4K_WIDTH && shortEdge >= FAST_4K_HEIGHT) {
+            FAST_4K_WIDTH to FAST_4K_HEIGHT
+        } else {
+            null
+        }
+    }
+
+    private fun PlaybackException.isVideoEffectFailure(): Boolean =
+        errorCode == PlaybackException.ERROR_CODE_VIDEO_FRAME_PROCESSOR_INIT_FAILED ||
+            errorCode == PlaybackException.ERROR_CODE_VIDEO_FRAME_PROCESSING_FAILED
 
     private fun openEpisodeChooser() {
         ChooseEpisodeDialog(
@@ -280,6 +363,9 @@ class AnimePlayerFragment : VideoSupportFragment() {
             viewModel.playEpisodeOfIndex(index)
         }.showNow(parentFragmentManager, TAG_EPISODE_CHOOSER)
     }
+
+    fun handlePlaybackKeyEvent(event: android.view.KeyEvent): Boolean =
+        glue?.onKey(view, event.keyCode, event) == true
 
     private fun playbackStateName(playbackState: Int): String = when (playbackState) {
         Player.STATE_IDLE -> "IDLE"
@@ -295,5 +381,8 @@ class AnimePlayerFragment : VideoSupportFragment() {
         private const val PLAYER_UPDATE_INTERVAL_MILLIS = 250
         private const val SEEK_INCREMENT_MS = 10_000L
         private const val EPISODE_PANEL_WIDTH_DP = 420
+        private const val FAST_4K_WIDTH = 3840
+        private const val FAST_4K_HEIGHT = 2160
+        private const val FAST_4K_DROPPED_FRAME_LIMIT = 24
     }
 }

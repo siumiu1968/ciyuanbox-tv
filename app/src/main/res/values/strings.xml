@@ -40,6 +40,13 @@
     <string name="player_episode_list">選擇集數</string>
     <string name="player_loading_episode">正在載入集數…</string>
     <string name="player_retry_hint">播放失敗，按播放鍵重試</string>
+    <string name="player_fast_4k">4K 快速</string>
+    <string name="player_fast_4k_on">4K 快速・已開啟</string>
+    <string name="player_fast_4k_enabled">已開啟 4K 快速模式</string>
+    <string name="player_fast_4k_disabled">已返回原畫</string>
+    <string name="player_fast_4k_requires_4k_output">目前輸出不是 4K，毋須開啟</string>
+    <string name="player_fast_4k_overload">裝置負載過高，已自動返回原畫</string>
+    <string name="player_fast_4k_unavailable">此裝置暫時無法使用 4K 快速模式</string>
     <string name="error_request_failed_template">請求資料失敗：%1$s</string>
     <string name="error_category_load_template">查詢可選分類失敗：%1$s</string>
     <string name="search_history">搜尋記錄</string>
@@ -48,6 +55,7 @@
     <string name="category_filter">篩選</string>
     <string name="category_choose">選擇分類</string>
     <string name="category_apply">套用</string>
+    <string name="category_results">作品</string>
     <string name="source_label_template">來源：%1$s</string>
     <string name="update_title">發現新版本 %1$s</string>
     <string name="update_body">新版已準備好，可直接下載並交由系統安裝。</string>

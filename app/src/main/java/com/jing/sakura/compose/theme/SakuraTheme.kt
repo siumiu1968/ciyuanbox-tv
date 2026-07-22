@@ -84,9 +84,13 @@ fun SakuraTheme(content: @Composable () -> Unit) {
         scrim = tvDarkColors.scrim
     )
     CompositionLocalProvider(LocalTvLanguage provides language) {
-        MaterialTheme(colorScheme = tvDarkColors) {
+        MaterialTheme(
+            colorScheme = tvDarkColors,
+            typography = AulamaTvTypography
+        ) {
             androidx.compose.material3.MaterialTheme(
                 colorScheme = material3ThemeColors,
+                typography = AulamaMaterialTypography,
                 content = content
             )
         }

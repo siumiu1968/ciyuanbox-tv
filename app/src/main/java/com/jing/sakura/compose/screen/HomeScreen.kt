@@ -91,6 +91,7 @@ import com.jing.sakura.compose.common.AulamaCardShape
 import com.jing.sakura.compose.common.AulamaAccountAvatar
 import com.jing.sakura.compose.common.AulamaAnimeBrandMark
 import com.jing.sakura.compose.common.AulamaTvColors
+import com.jing.sakura.compose.common.AutoMarqueeText
 import com.jing.sakura.compose.common.TvLanguagePreferences
 import com.jing.sakura.compose.common.ChineseText
 import com.jing.sakura.compose.common.TvLanguage
@@ -164,12 +165,22 @@ fun HomeScreen(
         dailySeed
     ) {
         val random = Random(dailySeed)
+        val theaterIdentityTokens = theaterItems
+            .flatMapTo(hashSetOf(), AnimeData::identityTokens)
         buildList {
             addAll(recommendations.distinctAnime().shuffled(random).take(3))
             addAll(todayUpdates.distinctAnime().shuffled(random).take(3))
             addAll(theaterItems.distinctAnime().shuffled(random).take(2))
             addAll(sourceRows.flatMap { it.value }.distinctAnime().shuffled(random))
-        }.distinctAnime().take(7)
+        }.distinctAnime()
+            .take(7)
+            .map { anime ->
+                if (anime.identityTokens().any(theaterIdentityTokens::contains)) {
+                    anime.withHeroFormat("劇場版")
+                } else {
+                    anime
+                }
+            }
     }
     val featuredIdentityTokens = remember(featured) {
         featured.flatMapTo(hashSetOf(), AnimeData::identityTokens)
@@ -669,16 +680,15 @@ private fun HeroPanel(
                 }
                 Spacer(Modifier.height(10.dp))
             }
-            androidx.tv.material3.Text(
+            AutoMarqueeText(
                 text = localizedText(anime.title),
-                color = if (compact) accent else AulamaTvColors.TextPrimary,
-                maxLines = if (compact) 1 else 2,
-                overflow = TextOverflow.Ellipsis,
+                color = accent,
                 style = MaterialTheme.typography.displaySmall.copy(
                     fontSize = if (compact) 29.sp else 34.sp,
                     lineHeight = if (compact) 34.sp else 38.sp,
-                    fontWeight = FontWeight.Bold
-                )
+                    fontWeight = FontWeight.ExtraBold
+                ),
+                modifier = Modifier.fillMaxWidth()
             )
             Spacer(Modifier.height(if (compact) 7.dp else 10.dp))
             HeroMetadata(anime = anime, accent = accent)
@@ -698,12 +708,12 @@ private fun HeroPanel(
                 }
             }
             if (!compact) {
-                Spacer(Modifier.height(12.dp))
+                Spacer(Modifier.height(18.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                 Button(
                     onClick = onOpen,
                     modifier = Modifier
-                        .height(48.dp)
+                        .height(44.dp)
                         .focusRequester(actionFocusRequester)
                         .onFocusChanged {
                             actionFocused = it.isFocused
@@ -735,27 +745,30 @@ private fun HeroPanel(
                         focusedContainerColor = Color.White,
                         focusedContentColor = Color(0xFF080A0F)
                     ),
-                    contentPadding = PaddingValues(horizontal = 18.dp, vertical = 0.dp)
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 0.dp)
                 ) {
-                    Icon(
-                        Icons.Default.PlayArrow,
-                        contentDescription = null,
-                        tint = actionContentColor,
-                        modifier = Modifier
-                            .size(23.dp)
-                            .align(Alignment.CenterVertically)
-                    )
-                    Spacer(Modifier.width(7.dp))
-                    androidx.tv.material3.Text(
-                        text = localizedText("查看詳情"),
-                        color = actionContentColor,
-                        style = MaterialTheme.typography.titleMedium.copy(
-                            fontSize = 16.sp,
-                            lineHeight = 18.sp,
-                            fontWeight = FontWeight.Bold
-                        ),
-                        modifier = Modifier.align(Alignment.CenterVertically)
-                    )
+                    Row(
+                        modifier = Modifier.height(44.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Icon(
+                            Icons.Default.PlayArrow,
+                            contentDescription = null,
+                            tint = actionContentColor,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(Modifier.width(6.dp))
+                        androidx.tv.material3.Text(
+                            text = localizedText("查看詳情"),
+                            color = actionContentColor,
+                            style = MaterialTheme.typography.titleMedium.copy(
+                                fontSize = 15.sp,
+                                lineHeight = 20.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        )
+                    }
                 }
                 if (featuredCount > 1) {
                     Spacer(Modifier.width(18.dp))
@@ -782,35 +795,92 @@ private fun HeroPanel(
 
 @Composable
 private fun HeroMetadata(anime: AnimeData, accent: Color) {
+    val displayYear = localizedText(anime.year)
     val displayEpisode = localizedText(anime.currentEpisode)
     val displayTags = localizedText(anime.tags)
-    val episode = remember(displayEpisode) {
-        displayEpisode.trim().takeIf {
-            it.length <= 18 && it.none { character -> character == ',' || character == '，' }
-        }
+    val labels = remember(displayYear, displayEpisode, displayTags) {
+        buildHeroMetadata(
+            year = displayYear,
+            currentEpisode = displayEpisode,
+            tags = displayTags
+        )
     }
-    val tags = remember(displayTags) {
-        displayTags.split('、', ',', '，', '/', ' ')
-            .map(String::trim)
-            .filter(String::isNotBlank)
-            .take(2)
-    }
+    if (labels.isEmpty()) return
     Row(
+        modifier = Modifier.height(32.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(9.dp)
     ) {
-        if (anime.year.isNotBlank()) {
-            MetadataLabel(text = anime.year, color = accent)
-        }
-        if (episode != null) {
+        labels.forEachIndexed { index, label ->
             MetadataLabel(
-                text = episode,
-                color = if (anime.year.isBlank()) accent else Color.White.copy(alpha = 0.80f)
+                text = label,
+                color = if (index == 0) accent else Color.White.copy(alpha = 0.80f)
             )
         }
-        tags.forEach { MetadataLabel(text = it, color = Color.White.copy(alpha = 0.80f)) }
     }
 }
+
+internal fun buildHeroMetadata(
+    year: String,
+    currentEpisode: String,
+    tags: String
+): List<String> = buildList {
+    normalizeHeroYear(year)?.let(::add)
+    normalizeHeroFormat(tags)?.let(::add)
+    normalizeHeroEpisode(currentEpisode)?.let(::add)
+}
+
+private fun AnimeData.withHeroFormat(format: String): AnimeData {
+    if (normalizeHeroFormat(tags) != null) return this
+    val enrichedTags = listOf(tags.trim(), format)
+        .filter(String::isNotBlank)
+        .joinToString("、")
+    return copy(tags = enrichedTags)
+}
+
+private fun normalizeHeroYear(value: String): String? = value
+    .trim()
+    .takeIf { HERO_YEAR_PATTERN.matches(it) }
+
+private fun normalizeHeroFormat(value: String): String? {
+    val tokens = value
+        .split('、', ',', '，', '/', '|', '·', '•', ' ')
+        .map(String::trim)
+        .filter(String::isNotBlank)
+    return tokens.firstNotNullOfOrNull { token ->
+        when (token.uppercase()) {
+            "TV", "TV動畫", "電視動畫" -> "TV"
+            "OVA" -> "OVA"
+            "ONA" -> "ONA"
+            "OAD" -> "OAD"
+            "SP", "特別篇", "特别篇" -> "特別篇"
+            "MOVIE", "電影", "电影", "劇場版", "剧场版" -> "劇場版"
+            else -> null
+        }
+    }
+}
+
+private fun normalizeHeroEpisode(value: String): String? {
+    val normalized = value.trim()
+    if (normalized.isBlank()) return null
+    if (normalized.contains("完結") || normalized.contains("完结")) return "已完結"
+    if (normalized == "連載中" || normalized == "连载中") return "連載中"
+
+    val compact = normalized.substringBefore('|').substringBefore('｜').trim()
+    HERO_TOTAL_EPISODE_PATTERN.matchEntire(compact)?.groupValues?.getOrNull(1)?.let { number ->
+        return "全${number}集"
+    }
+    HERO_EPISODE_PATTERN.find(compact)?.groupValues?.getOrNull(1)?.let { number ->
+        return "第${number}集"
+    }
+    return null
+}
+
+private val HERO_YEAR_PATTERN = Regex("^(?:19|20)\\d{2}$")
+private val HERO_TOTAL_EPISODE_PATTERN = Regex("^全\\s*(\\d{1,4})\\s*(?:集|話|话)$")
+private val HERO_EPISODE_PATTERN = Regex(
+    "^(?:更新至\\s*)?(?:第\\s*)?(\\d{1,4})(?:\\s*(?:集|話|话))?$"
+)
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
@@ -1009,6 +1079,7 @@ private fun MediaRow(
                         title = video.title,
                         subTitle = video.currentEpisode,
                         showLabels = rowFocused,
+                        selected = rowFocused && itemIndex == selectedVirtualIndex,
                         modifier = Modifier
                             .requiredSize(width = 148.dp, height = 208.dp)
                             .graphicsLayer { alpha = cardAlpha }
@@ -1056,6 +1127,7 @@ private fun CarouselPoster(
     title: String,
     subTitle: String,
     showLabels: Boolean,
+    selected: Boolean,
     modifier: Modifier = Modifier
 ) {
     val displayTitle = localizedText(title)
@@ -1110,16 +1182,15 @@ private fun CarouselPoster(
             )
         }
         if (showLabels) {
-            androidx.tv.material3.Text(
+            AutoMarqueeText(
                 text = displayTitle,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
                 color = AulamaTvColors.TextPrimary,
                 style = MaterialTheme.typography.titleMedium.copy(
                     fontSize = 16.sp,
                     lineHeight = 19.sp,
                     fontWeight = FontWeight.SemiBold
                 ),
+                enabled = selected,
                 modifier = Modifier
                     .align(Alignment.BottomStart)
                     .fillMaxWidth()
