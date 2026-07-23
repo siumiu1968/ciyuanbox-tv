@@ -4,6 +4,7 @@ import android.util.Base64
 import com.google.gson.JsonArray
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
+import com.jing.sakura.auth.AulamaAuthRepository
 import com.jing.sakura.data.AnimeData
 import com.jing.sakura.data.AnimeDetailPageData
 import com.jing.sakura.data.AnimePageData
@@ -27,7 +28,10 @@ import java.util.Calendar
 import org.jsoup.Jsoup
 import org.jsoup.nodes.Element
 
-class CycaniSource(private val okHttpClient: OkHttpClient) : AnimationSource {
+class CycaniSource(
+    private val okHttpClient: OkHttpClient,
+    private val authRepository: AulamaAuthRepository? = null
+) : AnimationSource {
 
     private var navCache: List<NavItem>? = null
 
@@ -58,7 +62,10 @@ class CycaniSource(private val okHttpClient: OkHttpClient) : AnimationSource {
             preferredItems.mapNotNull { navItem ->
                 val page = fetchQueryPage(
                     page = 1,
-                    params = linkedMapOf("type_id" to navItem.typeId)
+                    params = linkedMapOf<String, String>().apply {
+                        put("type_id", navItem.typeId)
+                        navItem.years.firstOrNull()?.let { put("year", it) }
+                    }
                 )
                 if (page.animeList.isEmpty()) {
                     null
@@ -351,10 +358,19 @@ class CycaniSource(private val okHttpClient: OkHttpClient) : AnimationSource {
         page: Int,
         params: LinkedHashMap<String, String>
     ): AnimePageData {
+        val syncedPage = runCatching {
+            authRepository?.fetchCatalogPage(params, page, pageSize)
+        }.getOrNull()
+        if (syncedPage != null) return syncedPage
+
+        val upstreamParams = LinkedHashMap(params)
+        upstreamParams.remove("type_id")?.takeIf(String::isNotBlank)?.let {
+            upstreamParams["tid"] = it
+        }
         val root = apiGetRootObject(
             "$API_BASE_URL/video/query",
             LinkedHashMap<String, String>().apply {
-                putAll(params)
+                putAll(upstreamParams)
                 put("page", page.toString())
                 put("limit", pageSize.toString())
             }

@@ -15,6 +15,8 @@ import coil.ImageLoaderFactory
 import coil.memory.MemoryCache
 import com.jing.sakura.auth.AulamaAuthRepository
 import com.jing.sakura.auth.AuthViewModel
+import com.jing.sakura.auth.PlaybackHistorySyncQueue
+import com.jing.sakura.auth.PlaybackHistorySyncScheduler
 import com.jing.sakura.auth.SecureAuthStorage
 import com.jing.sakura.detail.DetailPageViewModel
 import com.jing.sakura.extend.AndroidCookieJar
@@ -92,6 +94,7 @@ class SakuraApplication : Application(), ImageLoaderFactory {
             androidLogger()
             modules(httpModule(), roomModule(), viewModelModule())
         }.koin
+        PlaybackHistorySyncScheduler.enqueue(this)
         registerActivityLifecycleCallbacks(remotePlaybackCallbacks)
     }
 
@@ -136,7 +139,13 @@ class SakuraApplication : Application(), ImageLoaderFactory {
         single(qualifier(KoinOkHttpClient.AULAMA)) { provideAulamaOkHttpClient() }
         single { SecureAuthStorage(get()) }
         single { AulamaAuthRepository(get(qualifier(KoinOkHttpClient.AULAMA)), get()) }
-        single { WebPageRepository(get(qualifier = qualifier(KoinOkHttpClient.DATA))) }
+        single { PlaybackHistorySyncQueue(get()) }
+        single {
+            WebPageRepository(
+                get(qualifier = qualifier(KoinOkHttpClient.DATA)),
+                get()
+            )
+        }
     }
 
     private fun roomModule() = module {
@@ -166,7 +175,7 @@ class SakuraApplication : Application(), ImageLoaderFactory {
 
     private fun viewModelModule() = module {
         viewModel { holder -> DetailPageViewModel(holder.get(), get(), get(), get(), holder.get()) }
-        viewModel { holder -> VideoPlayerViewModel(holder.get(), get(), get(), get()) }
+        viewModel { holder -> VideoPlayerViewModel(holder.get(), get(), get(), get(), get()) }
         viewModelOf(::HomeViewModel)
         viewModelOf(::AuthViewModel)
         viewModel { holder -> SearchViewModel(get(), holder.get()) }

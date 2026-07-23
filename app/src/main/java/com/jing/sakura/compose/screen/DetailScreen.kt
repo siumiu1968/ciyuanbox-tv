@@ -2,6 +2,9 @@
 
 package com.jing.sakura.compose.screen
 
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -69,6 +72,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
@@ -111,6 +115,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 private val DetailHeroHeight = 346.dp
+private val RelatedBrowseHeroHeight = 226.dp
 
 @Composable
 fun DetailScreen(viewModel: DetailPageViewModel) {
@@ -143,6 +148,14 @@ fun DetailScreen(viewModel: DetailPageViewModel) {
     var reverseEpisodes by remember { mutableStateOf(false) }
     var resumeFocusSignal by remember { mutableStateOf(0) }
     var restoreEpisodePosition by remember { mutableStateOf(-1 to -1) }
+    var focusedRelatedAnime by remember(detail.animeId) { mutableStateOf<AnimeData?>(null) }
+    val activeBackdropAnime = focusedRelatedAnime
+    val activeBackdropAccent = rememberArtworkAccent(activeBackdropAnime?.imageUrl ?: detail.imageUrl)
+    val heroHeight by animateDpAsState(
+        targetValue = if (activeBackdropAnime == null) DetailHeroHeight else RelatedBrowseHeroHeight,
+        animationSpec = tween(durationMillis = 260),
+        label = "detail-hero-height"
+    )
 
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
@@ -233,31 +246,50 @@ fun DetailScreen(viewModel: DetailPageViewModel) {
             .fillMaxSize()
             .background(AulamaTvColors.Background)
     ) {
-        DetailBackdrop(imageUrl = detail.imageUrl, accent = detailAccent)
-        DetailHero(
-            detail = detail,
-            history = history,
-            onPlayClick = onPrimaryPlay,
-            isFavorite = favoriteUiState.isFavorite,
-            favoriteEnabled = !favoriteUiState.isLoading && !favoriteUiState.isUpdating,
-            onFavoriteClick = { viewModel.toggleFavorite(detail) },
-            primaryActionFocusRequester = primaryActionFocusRequester,
-            accent = detailAccent,
-            modifier = Modifier
-                .focusRequester(focusRequesters.hero)
-                .onFocusChanged { state ->
-                    if (state.isFocused || state.hasFocus) {
-                        if (hasDetailRows) {
-                            scope.launch { detailListState.animateScrollToItem(0) }
-                        }
-                    }
-                }
+        DetailBackdrop(
+            imageUrl = activeBackdropAnime?.imageUrl ?: detail.imageUrl,
+            accent = activeBackdropAccent
         )
+        Crossfade(
+            targetState = activeBackdropAnime,
+            animationSpec = tween(durationMillis = 240),
+            label = "detail-related-preview"
+        ) { relatedAnime ->
+            if (relatedAnime == null) {
+                DetailHero(
+                    detail = detail,
+                    history = history,
+                    onPlayClick = onPrimaryPlay,
+                    isFavorite = favoriteUiState.isFavorite,
+                    favoriteEnabled = !favoriteUiState.isLoading && !favoriteUiState.isUpdating,
+                    onFavoriteClick = { viewModel.toggleFavorite(detail) },
+                    primaryActionFocusRequester = primaryActionFocusRequester,
+                    accent = detailAccent,
+                    height = heroHeight,
+                    modifier = Modifier
+                        .focusRequester(focusRequesters.hero)
+                        .onFocusChanged { state ->
+                            if (state.isFocused || state.hasFocus) {
+                                focusedRelatedAnime = null
+                                if (hasDetailRows) {
+                                    scope.launch { detailListState.animateScrollToItem(0) }
+                                }
+                            }
+                        }
+                )
+            } else {
+                RelatedPreviewHero(
+                    anime = relatedAnime,
+                    accent = activeBackdropAccent,
+                    height = heroHeight
+                )
+            }
+        }
         LazyColumn(
             state = detailListState,
             modifier = Modifier
                 .fillMaxSize()
-                .padding(top = DetailHeroHeight),
+                .padding(top = heroHeight),
             contentPadding = PaddingValues(bottom = 44.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
@@ -335,6 +367,7 @@ fun DetailScreen(viewModel: DetailPageViewModel) {
                         else -> null
                     },
                     onEpisodeFocused = { episodeIndex, _ ->
+                        focusedRelatedAnime = null
                         focusedEpisodeIndexes = focusedEpisodeIndexes.toMutableList().also {
                             it[playlistIndex] = episodeIndex
                         }
@@ -359,6 +392,7 @@ fun DetailScreen(viewModel: DetailPageViewModel) {
                         videos = detail.otherAnimeList,
                         sourceId = viewModel.sourceId,
                         onNavigateUp = {
+                            focusedRelatedAnime = null
                             scope.launch {
                                 if (playlists.isNotEmpty()) {
                                     detailListState.scrollToItem(playlists.lastIndex)
@@ -375,6 +409,7 @@ fun DetailScreen(viewModel: DetailPageViewModel) {
                                 }
                             }
                         },
+                        onVideoFocused = { focusedRelatedAnime = it },
                         modifier = Modifier.focusRequester(focusRequesters.related!!)
                     )
                 }
@@ -414,17 +449,23 @@ private fun DetailBackdrop(imageUrl: String, accent: Color) {
                     )
                 )
         )
-        AsyncImage(
-            model = rememberPosterImageRequest(imageUrl = imageUrl, widthPx = 1040, heightPx = 1040),
-            contentDescription = null,
-            contentScale = ContentScale.Crop,
-            alignment = Alignment.TopEnd,
-            alpha = 0.38f,
-            modifier = Modifier
-                .align(Alignment.CenterEnd)
-                .fillMaxWidth(0.58f)
-                .fillMaxHeight()
-        )
+        Crossfade(
+            targetState = imageUrl,
+            animationSpec = tween(durationMillis = 280),
+            label = "detail-backdrop"
+        ) { activeImageUrl ->
+            AsyncImage(
+                model = rememberPosterImageRequest(imageUrl = activeImageUrl, widthPx = 1040, heightPx = 1040),
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                alignment = Alignment.TopEnd,
+                alpha = 0.38f,
+                modifier = Modifier
+                    .align(Alignment.CenterEnd)
+                    .fillMaxWidth(0.58f)
+                    .fillMaxHeight()
+            )
+        }
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -465,6 +506,7 @@ private fun DetailHero(
     onFavoriteClick: () -> Unit,
     primaryActionFocusRequester: FocusRequester,
     accent: Color,
+    height: Dp = DetailHeroHeight,
     modifier: Modifier = Modifier
 ) {
     val displayTitle = localizedText(detail.animeName)
@@ -477,7 +519,7 @@ private fun DetailHero(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(DetailHeroHeight)
+                .height(height)
                 .padding(start = 44.dp, end = 44.dp, top = 18.dp, bottom = 18.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -581,6 +623,92 @@ private fun DetailHero(
             accent = accent,
             onDismiss = { showDescription = false }
         )
+    }
+}
+
+@Composable
+private fun RelatedPreviewHero(
+    anime: AnimeData,
+    accent: Color,
+    height: Dp
+) {
+    val title = localizedText(anime.title)
+    val description = localizedText(anime.description).trim()
+    val metadata = listOf(anime.year, anime.tags, anime.currentEpisode)
+        .map { localizedText(it) }
+        .map(String::trim)
+        .filter(String::isNotBlank)
+        .distinct()
+        .joinToString("  •  ")
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(height)
+            .padding(start = 44.dp, end = 44.dp, top = 14.dp, bottom = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        val shape = RoundedCornerShape(8.dp)
+        AsyncImage(
+            model = rememberPosterImageRequest(anime.imageUrl, widthPx = 360, heightPx = 520),
+            contentDescription = title,
+            contentScale = ContentScale.Crop,
+            modifier = Modifier
+                .size(width = 126.dp, height = 180.dp)
+                .clip(shape)
+                .border(1.5.dp, accent.copy(alpha = 0.76f), shape)
+        )
+        Spacer(modifier = Modifier.width(26.dp))
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .widthIn(max = 720.dp),
+            verticalArrangement = Arrangement.spacedBy(7.dp)
+        ) {
+            Text(
+                text = stringResource(R.string.related_videos),
+                style = MaterialTheme.typography.labelLarge.copy(
+                    fontSize = 14.sp,
+                    lineHeight = 18.sp,
+                    fontWeight = FontWeight.SemiBold
+                ),
+                color = accent
+            )
+            Text(
+                text = title,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                style = MaterialTheme.typography.headlineLarge.copy(
+                    fontSize = 31.sp,
+                    lineHeight = 36.sp,
+                    fontWeight = FontWeight.ExtraBold
+                ),
+                color = accent
+            )
+            if (metadata.isNotBlank()) {
+                Text(
+                    text = metadata,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Medium
+                    ),
+                    color = AulamaTvColors.TextSecondary
+                )
+            }
+            if (description.isNotBlank()) {
+                Text(
+                    text = description,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        fontSize = 16.sp,
+                        lineHeight = 21.sp
+                    ),
+                    color = AulamaTvColors.TextPrimary
+                )
+            }
+        }
     }
 }
 
@@ -1125,6 +1253,7 @@ private fun RelatedAnimeSection(
     videos: List<AnimeData>,
     sourceId: String,
     onNavigateUp: () -> Unit,
+    onVideoFocused: (AnimeData) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -1185,6 +1314,7 @@ private fun RelatedAnimeSection(
                                 .run {
                                     if (videoIndex == 0) initiallyFocused() else restorableFocus()
                                 },
+                            onFocused = { onVideoFocused(video) },
                             onClick = {
                                 DetailActivity.startActivity(context, video.id, sourceId)
                             }

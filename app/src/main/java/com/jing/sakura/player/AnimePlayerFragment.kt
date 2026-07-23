@@ -7,6 +7,8 @@ import android.util.Log
 import android.view.View
 import android.view.ViewGroup
 import android.view.WindowManager
+import android.view.KeyEvent
+import android.widget.TextView
 import androidx.annotation.OptIn
 import androidx.core.graphics.drawable.toDrawable
 import androidx.leanback.app.VideoSupportFragment
@@ -57,7 +59,15 @@ class AnimePlayerFragment : VideoSupportFragment() {
 
     private var player: ExoPlayer? = null
     private var glue: ProgressTransportControlGlue<LeanbackPlayerAdapter>? = null
+    private var seekPreviewProvider: TvSeekPreviewProvider? = null
+    private var seekPreviewMediaItem: MediaItem? = null
     private var fast4kEnabled = false
+    private var skipSegmentActions: View? = null
+    private var skipSegmentButton: CountdownActionButton? = null
+    private var continueOutroButton: TextView? = null
+    private var activePlaybackSkip: ActivePlaybackSkip? = null
+    private var continueOutroChosen = false
+    private var handledEndedEpisodeIndex = -1
 
     private val analyticsListener = object : AnalyticsListener {
         override fun onDroppedVideoFrames(
@@ -81,9 +91,10 @@ class AnimePlayerFragment : VideoSupportFragment() {
                 Player.STATE_READY -> progressBarManager.hide()
                 Player.STATE_ENDED -> {
                     progressBarManager.hide()
-                    viewModel.playNextEpisodeIfExists()
+                    advanceToNextEpisode()
                 }
             }
+            if (playbackState == Player.STATE_READY) installSeekPreviewProvider()
         }
 
         override fun onIsPlayingChanged(isPlaying: Boolean) {
@@ -131,6 +142,17 @@ class AnimePlayerFragment : VideoSupportFragment() {
         progressBarManager.setRootView(view as ViewGroup)
         progressBarManager.enableProgressBar()
         progressBarManager.initialDelay = 0L
+        skipSegmentActions = requireActivity().findViewById(R.id.player_skip_actions)
+        skipSegmentButton = requireActivity().findViewById<CountdownActionButton>(R.id.player_skip_segment).apply {
+            setOnClickListener { activateSkipSegment() }
+        }
+        continueOutroButton = requireActivity().findViewById<TextView>(R.id.player_continue_outro).apply {
+            setOnClickListener {
+                continueOutroChosen = true
+                hideSkipSegment()
+                glue?.host?.showControlsOverlay(true)
+            }
+        }
 
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
@@ -139,6 +161,11 @@ class AnimePlayerFragment : VideoSupportFragment() {
                 }
                 launch {
                     viewModel.videoUrl.collectLatest(::renderVideoState)
+                }
+                launch {
+                    viewModel.playbackSegments.collectLatest {
+                        renderSkipSegment(player?.currentPosition ?: 0L)
+                    }
                 }
             }
         }
@@ -150,6 +177,7 @@ class AnimePlayerFragment : VideoSupportFragment() {
     }
 
     override fun onStop() {
+        hideSkipSegment()
         snapshotPlaybackPosition()
         viewModel.stopSaveHistory()
         destroyPlayer()
@@ -176,6 +204,10 @@ class AnimePlayerFragment : VideoSupportFragment() {
     private fun loadEpisode(payload: EpisodeUrlAndHistory) {
         val localPlayer = player ?: return
         progressBarManager.show()
+        handledEndedEpisodeIndex = -1
+        continueOutroChosen = false
+        hideSkipSegment()
+        clearSeekPreviewProvider()
 
         val dataSourceFactory = OkHttpDataSource.Factory { request ->
             okHttpClient.newCall(request)
@@ -190,7 +222,9 @@ class AnimePlayerFragment : VideoSupportFragment() {
                 }
             }
             .build()
-        val mediaSource = DefaultMediaSourceFactory(dataSourceFactory).createMediaSource(mediaItem)
+        val mediaSourceFactory = DefaultMediaSourceFactory(dataSourceFactory)
+        val mediaSource = mediaSourceFactory.createMediaSource(mediaItem)
+        seekPreviewMediaItem = mediaItem
 
         val startPositionMs = payload.lastPlayPosition.takeIf { position ->
             position > 0L &&
@@ -266,6 +300,8 @@ class AnimePlayerFragment : VideoSupportFragment() {
                     localPlayer.currentPosition.coerceAtLeast(0L),
                     localPlayer.contentDuration.coerceAtLeast(0L)
                 )
+                renderSkipSegment(localPlayer.currentPosition.coerceAtLeast(0L))
+                seekPreviewProvider?.captureCurrentFrame()
             },
             chooseEpisode = ::openEpisodeChooser,
             playPreviousEpisode = viewModel::playPreviousEpisodeIfExists,
@@ -291,6 +327,7 @@ class AnimePlayerFragment : VideoSupportFragment() {
     }
 
     private fun destroyPlayer() {
+        clearSeekPreviewProvider()
         player?.let {
             it.removeListener(playerListener)
             it.removeAnalyticsListener(analyticsListener)
@@ -300,6 +337,29 @@ class AnimePlayerFragment : VideoSupportFragment() {
         player = null
         glue = null
         fast4kEnabled = false
+    }
+
+    private fun installSeekPreviewProvider() {
+        if (seekPreviewProvider != null) return
+        val durationMs = player?.contentDuration?.takeIf { it > 0L } ?: return
+        val mediaItem = seekPreviewMediaItem ?: return
+        val localPlayer = player ?: return
+        seekPreviewProvider = TvSeekPreviewProvider(
+            context = requireContext(),
+            player = localPlayer,
+            surfaceView = surfaceView,
+            mediaItem = mediaItem,
+            durationMs = durationMs
+        ).also {
+            glue?.seekProvider = it
+        }
+    }
+
+    private fun clearSeekPreviewProvider() {
+        glue?.seekProvider = null
+        seekPreviewProvider?.close()
+        seekPreviewProvider = null
+        seekPreviewMediaItem = null
     }
 
     private fun toggleFast4k(): Boolean {
@@ -364,8 +424,145 @@ class AnimePlayerFragment : VideoSupportFragment() {
         }.showNow(parentFragmentManager, TAG_EPISODE_CHOOSER)
     }
 
-    fun handlePlaybackKeyEvent(event: android.view.KeyEvent): Boolean =
-        glue?.onKey(view, event.keyCode, event) == true
+    fun handlePlaybackKeyEvent(event: android.view.KeyEvent): Boolean {
+        val primaryFocused = skipSegmentButton?.hasFocus() == true
+        val continueFocused = continueOutroButton?.hasFocus() == true
+        return if (primaryFocused || continueFocused) {
+            when (event.keyCode) {
+                KeyEvent.KEYCODE_DPAD_CENTER,
+                KeyEvent.KEYCODE_ENTER,
+                KeyEvent.KEYCODE_NUMPAD_ENTER -> {
+                    if (event.action == KeyEvent.ACTION_UP) {
+                        if (continueFocused) continueOutroButton?.performClick()
+                        else activateSkipSegment()
+                    }
+                    true
+                }
+                KeyEvent.KEYCODE_DPAD_RIGHT -> {
+                    if (event.action == KeyEvent.ACTION_DOWN && primaryFocused && continueOutroButton?.visibility == View.VISIBLE) {
+                        continueOutroButton?.requestFocus()
+                    }
+                    true
+                }
+                KeyEvent.KEYCODE_DPAD_LEFT -> {
+                    if (event.action == KeyEvent.ACTION_DOWN && continueFocused) {
+                        skipSegmentButton?.requestFocus()
+                    }
+                    true
+                }
+                KeyEvent.KEYCODE_BACK,
+                KeyEvent.KEYCODE_DPAD_DOWN -> {
+                    if (event.action == KeyEvent.ACTION_UP) {
+                        skipSegmentButton?.clearFocus()
+                        continueOutroButton?.clearFocus()
+                        glue?.host?.showControlsOverlay(true)
+                    }
+                    true
+                }
+                else -> glue?.onKey(view, event.keyCode, event) == true
+            }
+        } else {
+            glue?.onKey(view, event.keyCode, event) == true
+        }
+    }
+
+    override fun onDestroyView() {
+        skipSegmentButton?.setOnClickListener(null)
+        skipSegmentButton?.cancelCountdown()
+        continueOutroButton?.setOnClickListener(null)
+        skipSegmentActions = null
+        skipSegmentButton = null
+        continueOutroButton = null
+        activePlaybackSkip = null
+        super.onDestroyView()
+    }
+
+    private fun renderSkipSegment(positionMs: Long) {
+        val button = skipSegmentButton ?: return
+        val durationMs = player?.contentDuration?.coerceAtLeast(0L) ?: 0L
+        if (PlaybackSkipPolicy.shouldAutoAdvanceAtEnd(positionMs, durationMs, viewModel.hasNextEpisode())) {
+            advanceToNextEpisode()
+            return
+        }
+        val active = PlaybackSkipPolicy.activeSkip(
+            viewModel.playbackSegments.value,
+            positionMs,
+            viewModel.hasNextEpisode()
+        )
+        if (active == null) {
+            hideSkipSegment()
+            return
+        }
+        if (active.advancesEpisode && continueOutroChosen) {
+            hideSkipSegment()
+            return
+        }
+        val actionChanged = activePlaybackSkip != active
+        activePlaybackSkip = active
+        button.text = getString(
+            when {
+                active.type == ActivePlaybackSkip.Type.INTRO -> R.string.player_skip_intro
+                active.advancesEpisode -> R.string.player_next_episode
+                else -> R.string.player_skip_outro
+            }
+        )
+        continueOutroButton?.visibility = if (active.advancesEpisode) View.VISIBLE else View.GONE
+        val actions = skipSegmentActions ?: return
+        if (actions.visibility != View.VISIBLE) {
+            actions.alpha = 0f
+            actions.visibility = View.VISIBLE
+            actions.animate().alpha(1f).setDuration(180L).start()
+            button.post {
+                if (activePlaybackSkip == active && actions.visibility == View.VISIBLE) {
+                    button.requestFocus()
+                }
+            }
+        }
+        if (actionChanged) {
+            button.cancelCountdown()
+            if (active.advancesEpisode) {
+                button.startCountdown(AUTO_NEXT_COUNTDOWN_MS) {
+                    if (activePlaybackSkip == active) advanceToNextEpisode()
+                }
+            }
+        }
+    }
+
+    private fun hideSkipSegment() {
+        activePlaybackSkip = null
+        skipSegmentButton?.cancelCountdown()
+        skipSegmentActions?.apply {
+            animate().cancel()
+            visibility = View.GONE
+        }
+        skipSegmentButton?.apply {
+            clearFocus()
+        }
+        continueOutroButton?.apply {
+            visibility = View.GONE
+            clearFocus()
+        }
+    }
+
+    private fun activateSkipSegment() {
+        val active = activePlaybackSkip ?: return
+        if (active.advancesEpisode) {
+            advanceToNextEpisode()
+        } else {
+            player?.seekTo(active.targetMs)
+            hideSkipSegment()
+        }
+    }
+
+    private fun advanceToNextEpisode() {
+        if (!viewModel.hasNextEpisode() || handledEndedEpisodeIndex == viewModel.playIndex) {
+            hideSkipSegment()
+            return
+        }
+        handledEndedEpisodeIndex = viewModel.playIndex
+        hideSkipSegment()
+        viewModel.playNextEpisodeAdjacent()
+    }
 
     private fun playbackStateName(playbackState: Int): String = when (playbackState) {
         Player.STATE_IDLE -> "IDLE"
@@ -384,5 +581,6 @@ class AnimePlayerFragment : VideoSupportFragment() {
         private const val FAST_4K_WIDTH = 3840
         private const val FAST_4K_HEIGHT = 2160
         private const val FAST_4K_DROPPED_FRAME_LIMIT = 24
+        private const val AUTO_NEXT_COUNTDOWN_MS = 5_000L
     }
 }

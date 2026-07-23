@@ -6,15 +6,17 @@ import com.jing.sakura.data.HomePageData
 import com.jing.sakura.data.NamedValue
 import com.jing.sakura.data.Resource
 import com.jing.sakura.data.UpdateTimeLine
+import com.jing.sakura.auth.AulamaAuthRepository
 import okhttp3.OkHttpClient
 
 class WebPageRepository(
-    okHttpClient: OkHttpClient
+    okHttpClient: OkHttpClient,
+    authRepository: AulamaAuthRepository? = null
 ) {
 
     val animationSources =
         listOf(
-            CycaniSource(okHttpClient),
+            CycaniSource(okHttpClient, authRepository),
         )
 
     private val animationSourceMap = animationSources.associateBy { it.sourceId }

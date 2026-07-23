@@ -3,8 +3,10 @@ package com.jing.sakura.auth
 import android.os.Build
 import com.google.gson.JsonObject
 import com.google.gson.JsonArray
+import com.google.gson.JsonParser
 import com.jing.sakura.BuildConfig
 import com.jing.sakura.data.AnimeData
+import com.jing.sakura.data.AnimePageData
 import com.jing.sakura.extend.executeWithCoroutine
 import com.jing.sakura.remote.RemoteCommandAckStatus
 import com.jing.sakura.remote.RemotePlaybackCommand
@@ -115,6 +117,50 @@ class AulamaAuthRepository(
             .build()
         val body = authenticatedBody(url) ?: return TvAnimeDetailPayload()
         return TvLibraryParser.parseAnimeDetail(body)
+    }
+
+    suspend fun fetchCatalogPage(
+        filters: Map<String, String>,
+        page: Int,
+        limit: Int
+    ): AnimePageData? {
+        val url = API_BASE.toHttpUrl().newBuilder()
+            .addPathSegment("list")
+            .apply {
+                filters.forEach { (key, value) ->
+                    if (value.isNotBlank()) addQueryParameter(key, value)
+                }
+                addQueryParameter("page", page.coerceAtLeast(1).toString())
+                addQueryParameter("limit", limit.coerceAtLeast(1).toString())
+            }
+            .build()
+        val body = authenticatedBody(url) ?: return null
+        val root = JsonParser.parseString(body).asJsonObject
+        val total = root.get("total")?.asInt ?: 0
+        val items = RecommendationParser.parseItems(
+            root.getAsJsonArray("items") ?: JsonArray()
+        )
+        return AnimePageData(
+            page = page,
+            hasNextPage = total > page * limit,
+            animeList = items
+        )
+    }
+
+    suspend fun fetchPlaybackSegments(
+        animeId: String,
+        episodeId: String,
+        episodeIndex: Int
+    ): PlaybackSegments? {
+        if (animeId.isBlank() || episodeId.isBlank() || episodeIndex < 0) return null
+        val url = API_BASE.toHttpUrl().newBuilder()
+            .addPathSegment("playback")
+            .addPathSegment("segments")
+            .addQueryParameter("animeId", animeId)
+            .addQueryParameter("episodeId", episodeId)
+            .addQueryParameter("episodeIndex", episodeIndex.toString())
+            .build()
+        return authenticatedBody(url)?.let(PlaybackSegmentsParser::parse)
     }
 
     suspend fun fetchFavorites(): List<AnimeData> =

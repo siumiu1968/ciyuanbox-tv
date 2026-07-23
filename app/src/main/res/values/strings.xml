@@ -40,6 +40,10 @@
     <string name="player_episode_list">選擇集數</string>
     <string name="player_loading_episode">正在載入集數…</string>
     <string name="player_retry_hint">播放失敗，按播放鍵重試</string>
+    <string name="player_skip_intro">跳過片頭</string>
+    <string name="player_skip_outro">跳過片尾</string>
+    <string name="player_next_episode">下一集</string>
+    <string name="player_continue_outro">繼續播放</string>
     <string name="player_fast_4k">4K 快速</string>
     <string name="player_fast_4k_on">4K 快速・已開啟</string>
     <string name="player_fast_4k_enabled">已開啟 4K 快速模式</string>

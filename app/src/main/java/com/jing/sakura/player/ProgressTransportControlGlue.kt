@@ -104,12 +104,12 @@ class ProgressTransportControlGlue<T : PlayerAdapter>(
         if (!host.isControlsOverlayVisible) {
             when (keyCode) {
                 KeyEvent.KEYCODE_DPAD_LEFT -> {
-                    if (event.action == KeyEvent.ACTION_UP) seekBy(-SEEK_INCREMENT_MS)
-                    return true
+                    if (event.action == KeyEvent.ACTION_DOWN) host.showControlsOverlay(true)
+                    return super.onKey(view, keyCode, event)
                 }
                 KeyEvent.KEYCODE_DPAD_RIGHT -> {
-                    if (event.action == KeyEvent.ACTION_UP) seekBy(SEEK_INCREMENT_MS)
-                    return true
+                    if (event.action == KeyEvent.ACTION_DOWN) host.showControlsOverlay(true)
+                    return super.onKey(view, keyCode, event)
                 }
                 KeyEvent.KEYCODE_DPAD_CENTER,
                 KeyEvent.KEYCODE_ENTER,

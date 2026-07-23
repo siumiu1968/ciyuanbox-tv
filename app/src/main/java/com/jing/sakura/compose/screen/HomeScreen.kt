@@ -144,7 +144,7 @@ fun HomeScreen(
     val displayData: HomePageData? = when (homePageDataResource) {
         is Resource.Success -> homePageDataResource.data
         is Resource.Loading -> viewModel.lastHomePageData
-        is Resource.Error -> null
+        is Resource.Error -> viewModel.lastHomePageData
     }
 
     val sourceRows = displayData?.seriesList.orEmpty()
@@ -227,6 +227,7 @@ fun HomeScreen(
                 .forEach { add(it.copy(value = it.value.distinctAnime())) }
         }.distinctBy { it.name }
     }
+    val hasRenderableContent = featured.isNotEmpty() || rows.any { it.value.isNotEmpty() }
     var heroIndex by remember { mutableStateOf(0) }
     var focusedHero by remember { mutableStateOf<AnimeData?>(null) }
     var autoRotateHero by remember { mutableStateOf(true) }
@@ -506,7 +507,7 @@ fun HomeScreen(
         if (homePageDataResource is Resource.Loading && !homePageDataResource.silent && displayData == null) {
             Loading(text = "")
         }
-        if (homePageDataResource is Resource.Error) {
+        if (homePageDataResource is Resource.Error && !hasRenderableContent) {
             ErrorTip(message = "暫時未能載入內容，請稍後再試") {
                 viewModel.loadData(false)
             }
